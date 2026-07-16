@@ -57,49 +57,46 @@ public enum SP621EEffect: UInt8 {
     case rainbow = 0x01
 }
 
-public enum SP621EState: Equatable {
-    case poweredOff
-    case scanning
-    case connecting
-    case connected
-    case disconnected
-}
-
-public struct DeviceState: Equatable {
-    public var isOn: Bool
-    public var brightness: UInt8
-    public var mode: SP621EMode
-    public var rgb: RGB
-    public var effectIndex: UInt8
-    
-    static func parse(_ bytes: [UInt8]) -> DeviceState? {
-        // Expect: 20 bytes, header 0x53 0x43, frame index 0x01.
-        guard bytes.count == 20, bytes[0] == 0x53, bytes[1] == 0x43, bytes[2] == 0x01 else {
-            return nil
-        }
-        return DeviceState(
-            isOn: bytes[5] == 0x01,
-            brightness: bytes[9],
-            mode: bytes[7] == SP621EEffect.disabled.rawValue ? .solidColor : .dynamicEffect,
-            rgb: RGB(red: bytes[12], green: bytes[13], blue: bytes[14]),
-            effectIndex: bytes[7],
-        )
-    }
-}
-
 // MARK: - Controller
 
 public final class SP621E: NSObject {
-
-    // Called on the main queue whenever the connection state changes.
-    public var onStateChange: ((SP621EState) -> Void)?
+    public enum ConnectionState: Equatable {
+        case disconnected, connecting, connected
+    }
     
-    // Called on the main queue when the harness reports its state (on connect).
-    public var onStateNotification: ((DeviceState) -> Void)?
+    public struct State: Equatable {
+        public var isOn: Bool
+        public var brightness: UInt8
+        public var mode: SP621EMode
+        public var rgb: RGB
+        public var effectIndex: UInt8
+        
+        static func parse(_ bytes: [UInt8]) -> State? {
+            // Expect: 20 bytes, header 0x53 0x43, frame index 0x01.
+            guard bytes.count == 20, bytes[0] == 0x53, bytes[1] == 0x43, bytes[2] == 0x01 else {
+                return nil
+            }
+            return State(
+                isOn: bytes[5] == 0x01,
+                brightness: bytes[9],
+                mode: bytes[7] == SP621EEffect.disabled.rawValue ? .solidColor : .dynamicEffect,
+                rgb: RGB(red: bytes[12], green: bytes[13], blue: bytes[14]),
+                effectIndex: bytes[7],
+            )
+        }
+    }
+    
+    public let peripheral: CBPeripheral
+    public var identifier: UUID { peripheral.identifier }
+
+    /// Called when the connection state changes.
+    public var onStateChange: ((ConnectionState) -> Void)?
+    /// Called when the controller reports its state (on connect).
+    public var onStateNotification: ((State) -> Void)?
 
     public var deviceName: String = "SP621E"
 
-    public private(set) var state: SP621EState = .disconnected {
+    public private(set) var state: ConnectionState = .disconnected {
         didSet {
             guard state != oldValue else { return }
             DispatchQueue.main.async { [weak self] in
@@ -107,41 +104,29 @@ public final class SP621E: NSObject {
             }
         }
     }
-
-    private var central: CBCentralManager!
-    private var peripheral: CBPeripheral?
+    
     private var writeableCharacteristic: CBCharacteristic?
-
-    // Commands issued before the characteristic is ready are queued and
-    // flushed on connect, so callers don't have to gate every call themselves.
     private var pendingWrites: [[UInt8]] = []
 
-    private let queue = DispatchQueue(label: "sp621e.ble")
-
-    public override init() {
+    public init(peripheral: CBPeripheral) {
+        self.peripheral = peripheral
         super.init()
-        central = CBCentralManager(delegate: self, queue: queue)
+        peripheral.delegate = self
     }
-
-    // MARK: Lifecycle
-
-    /// Begin scanning; auto-connects to the first matching SP621E found.
-    public func start() {
-        queue.async { [weak self] in
-            guard let self, self.central.state == .poweredOn else { return }
-            self.state = .scanning
-            self.central.scanForPeripherals(withServices: nil, options: nil)
-        }
+    
+    public func connect() {
+        state = .connecting
     }
-
-    public func disconnect() {
-        queue.async { [weak self] in
-            guard let self, let peripheral = self.peripheral else { return }
-            self.central.cancelPeripheralConnection(peripheral)
-        }
+    
+    public func handleConnection() {
+        peripheral.delegate = self
+        peripheral.discoverServices([GATT.serviceUUID])
     }
-
-    // MARK: High-level commands
+    
+    public func handleDisconnection() {
+        writeableCharacteristic = nil
+        state = .disconnected
+    }
 
     /// Ask the strip to report its current state.
     public func queryState() {
@@ -178,26 +163,20 @@ public final class SP621E: NSObject {
         send([frameHeader, Opcode.effectSpeed.rawValue, 0x01, speed])
     }
 
-    // MARK: Low-level send
-
-    /// Write a raw frame to FFE1. Queues if not yet connected.
-    public func send(_ bytes: [UInt8]) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard let peripheral, let writeableCharacteristic else {
-                self.pendingWrites.append(bytes)
-                return
-            }
-            peripheral.writeValue(
-                Data(bytes),
-                for: writeableCharacteristic,
-                type: .withoutResponse
-            )
+    private func send(_ bytes: [UInt8]) {
+        guard let writeableCharacteristic else {
+            self.pendingWrites.append(bytes)
+            return
         }
+        peripheral.writeValue(
+            Data(bytes),
+            for: writeableCharacteristic,
+            type: .withoutResponse
+        )
     }
 
     private func flushPending() {
-        guard let peripheral, let writeableCharacteristic else { return }
+        guard let writeableCharacteristic else { return }
         for bytes in pendingWrites {
             peripheral.writeValue(
                 Data(bytes),
@@ -209,67 +188,7 @@ public final class SP621E: NSObject {
     }
 }
 
-// MARK: - CBCentralManagerDelegate
-
-extension SP621E: CBCentralManagerDelegate {
-    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        switch central.state {
-        case .poweredOn:
-            start()
-        case .poweredOff, .unauthorized, .unsupported, .resetting, .unknown:
-            state = .poweredOff
-        @unknown default:
-            state = .poweredOff
-        }
-    }
-
-    public func centralManager(
-        _ central: CBCentralManager,
-        didDiscover peripheral: CBPeripheral,
-        advertisementData: [String: Any],
-        rssi RSSI: NSNumber
-    ) {
-        // Match by advertised name when present; the service filter already
-        // narrows most of the field.
-        let advName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-        let name = advName ?? peripheral.name ?? ""
-        guard deviceName.isEmpty || name.contains(deviceName) else { return }
-
-        central.stopScan()
-        self.peripheral = peripheral
-        peripheral.delegate = self
-        state = .connecting
-        central.connect(peripheral, options: nil)
-    }
-
-    public func centralManager(
-        _ central: CBCentralManager,
-        didConnect peripheral: CBPeripheral
-    ) {
-        peripheral.discoverServices([GATT.serviceUUID])
-    }
-
-    public func centralManager(
-        _ central: CBCentralManager,
-        didFailToConnect peripheral: CBPeripheral,
-        error: Error?
-    ) {
-        state = .disconnected
-        self.peripheral = nil
-    }
-
-    public func centralManager(
-        _ central: CBCentralManager,
-        didDisconnectPeripheral peripheral: CBPeripheral,
-        error: Error?
-    ) {
-        state = .disconnected
-        self.peripheral = nil
-        self.writeableCharacteristic = nil
-    }
-}
-
-// MARK: - CBPeripheralDelegate
+// MARK: CBPeripheralDelegate
 
 extension SP621E: CBPeripheralDelegate {
     public func peripheral(
@@ -307,7 +226,7 @@ extension SP621E: CBPeripheralDelegate {
         guard characteristic.uuid == GATT.characteristicUUID,
                 let data = characteristic.value else { return }
         let bytes = [UInt8](data)
-        guard let deviceState = DeviceState.parse(bytes) else {
+        guard let deviceState = State.parse(bytes) else {
             print("Unable to parse device state.")
             return
         }

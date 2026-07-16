@@ -10,7 +10,7 @@ import Observation
 
 @Observable
 final class Harness {
-    private let controller = SP621E()
+    private let coordinator = SP621ECoordinator()
     private var isApplyingRemoteState = false
     
     private var lastBrightnessUpdate: Date = .distantPast
@@ -21,11 +21,14 @@ final class Harness {
     private var colorWorkItem: DispatchWorkItem?
     private let colorUpdateDelay: TimeInterval = 0.08
     
-    var state: SP621EState = .disconnected
+    var state: ConnectionState = .disconnected
+    
+    var isConnected: Bool { state == .connected }
+    
     var isPoweredOn: Bool = false {
         didSet {
             guard !isApplyingRemoteState else { return }
-            isPoweredOn ? controller.powerOn() : controller.powerOff()
+            isPoweredOn ? coordinator.powerOn() : coordinator.powerOff()
         }
     }
     var brightness: Double = 0.0 {
@@ -55,16 +58,16 @@ final class Harness {
     
     init() {
         // Start observing changes to BLE connection state
-        controller.onStateChange = { [weak self] state in
+        coordinator.onStateChange = { [weak self] state in
             guard let self else { return }
             self.state = state
-            if state == .disconnected {
+            if state != .connected {
                 self.brightnessWorkItem?.cancel()
                 self.colorWorkItem?.cancel()
             }
         }
         // Start observing changes to harness state
-        controller.onStateNotification = { [weak self] newState in
+        coordinator.onPrimaryControllerStateChange = { [weak self] newState in
             guard let self else { return }
             self.isApplyingRemoteState = true
             self.isPoweredOn = newState.isOn
@@ -76,7 +79,7 @@ final class Harness {
         }
     }
     
-    func connect() { controller.start() }
+    func connect() { coordinator.connect() }
     
     private func setBrightness() {
         brightnessWorkItem?.cancel()
@@ -86,7 +89,7 @@ final class Harness {
         
         if elapsed >= brightnessUpdateDelay {
             lastBrightnessUpdate = .now
-            controller.setBrightness(UInt8(brightness.rounded()))
+            coordinator.setBrightness(UInt8(brightness.rounded()))
         } else {
             let delay = brightnessUpdateDelay - elapsed
             let workItem = DispatchWorkItem { [weak self] in self?.setBrightness() }
@@ -98,9 +101,9 @@ final class Harness {
     private func setMode() {
         switch mode {
         case .solidColor:
-            controller.setEffect(.disabled)
+            coordinator.setEffect(.disabled)
         case .dynamicEffect:
-            controller.setEffect(effect)
+            coordinator.setEffect(effect)
         }
     }
     
@@ -113,7 +116,7 @@ final class Harness {
         if elapsed >= colorUpdateDelay {
             lastColorUpdate = .now
             let (red, green, blue) = color.rgbBytes
-            controller.setColor(
+            coordinator.setColor(
                 red: red,
                 green: green,
                 blue: blue,
@@ -128,6 +131,6 @@ final class Harness {
     }
     
     private func setEffect() {
-        controller.setEffect(effect)
+        coordinator.setEffect(effect)
     }
 }
