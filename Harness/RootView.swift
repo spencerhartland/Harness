@@ -93,7 +93,7 @@ struct RootView: View {
             }
         }
         .disabled(!harness.isPoweredOn)
-        .opacity(0.3)
+        .dimmed(!harness.isPoweredOn)
     }
 }
 
