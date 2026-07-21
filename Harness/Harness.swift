@@ -11,15 +11,13 @@ import Observation
 @Observable
 final class Harness {
     private let coordinator = SP621ECoordinator()
+    
+    private let brightnessThrottle = Throttle(interval: 0.08)
+    private let colorThrottle = Throttle(interval: 0.08)
+    private let effectSpeedThrottle = Throttle(interval: 0.08)
+    private let effectLengthThrottle = Throttle(interval: 0.08)
+    
     private var isApplyingRemoteState = false
-    
-    private var lastBrightnessUpdate: Date = .distantPast
-    private var brightnessWorkItem: DispatchWorkItem?
-    private let brightnessUpdateDelay: TimeInterval = 0.08
-    
-    private var lastColorUpdate: Date = .distantPast
-    private var colorWorkItem: DispatchWorkItem?
-    private let colorUpdateDelay: TimeInterval = 0.08
     
     var state: ConnectionState = .disconnected
     
@@ -37,7 +35,7 @@ final class Harness {
             setBrightness()
         }
     }
-    var mode: SP621EMode = .solidColor {
+    var mode: SP621E.Mode = .solidColor {
         didSet {
             guard !isApplyingRemoteState else { return }
             setMode()
@@ -49,10 +47,22 @@ final class Harness {
             setColor()
         }
     }
-    var effect: SP621EEffect = .rainbow {
+    var effect: SP621E.Effect = .none {
         didSet {
             guard !isApplyingRemoteState else { return }
             setEffect()
+        }
+    }
+    var effectSpeed: Double = 0.0 {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            setEffectSpeed()
+        }
+    }
+    var effectLength: Double = 0.0 {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            setEffectLength()
         }
     }
     
@@ -62,75 +72,118 @@ final class Harness {
             guard let self else { return }
             self.state = state
             if state != .connected {
-                self.brightnessWorkItem?.cancel()
-                self.colorWorkItem?.cancel()
+                brightnessThrottle.cancel()
+                colorThrottle.cancel()
+                effectSpeedThrottle.cancel()
+                effectLengthThrottle.cancel()
             }
         }
         // Start observing changes to harness state
         coordinator.onPrimaryControllerStateChange = { [weak self] newState in
             guard let self else { return }
             self.isApplyingRemoteState = true
-            self.isPoweredOn = newState.isOn
             self.brightness = Double(newState.brightness)
-            self.mode = newState.mode
             self.color = newState.rgb.color
-            if let effect = SP621EEffect(rawValue: newState.effectIndex) { self.effect = effect }
+            self.mode = newState.mode
+            if let effect = SP621E.Effect(rawValue: newState.effectIndex) { self.effect = effect }
+            self.effectSpeed = Double(newState.effectSpeed)
+            self.effectLength = Double(newState.effectLength)
+            self.isPoweredOn = newState.isOn
             self.isApplyingRemoteState = false
         }
+        
+        coordinator.currentSP621EState = { [weak self] in self?.currentHarnessState }
     }
     
     func connect() { coordinator.connect() }
     
+    private var currentHarnessState: SP621E.State {
+        SP621E.State(
+            isOn: isPoweredOn,
+            brightness: UInt8(brightness.rounded()),
+            mode: mode,
+            rgb: RGB(from: color),
+            effectIndex: effect.rawValue,
+            effectSpeed: UInt8(effectSpeed.rounded()),
+            effectLength: UInt8(effectLength.rounded())
+        )
+    }
+    
     private func setBrightness() {
-        brightnessWorkItem?.cancel()
-        
-        let now = Date()
-        let elapsed = now.timeIntervalSince(lastBrightnessUpdate)
-        
-        if elapsed >= brightnessUpdateDelay {
-            lastBrightnessUpdate = .now
-            coordinator.setBrightness(UInt8(brightness.rounded()))
-        } else {
-            let delay = brightnessUpdateDelay - elapsed
-            let workItem = DispatchWorkItem { [weak self] in self?.setBrightness() }
-            brightnessWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        brightnessThrottle.send { [weak self] in
+            guard let self else { return }
+            let value = UInt8(self.brightness.rounded())
+            self.coordinator.setBrightness(value)
         }
     }
     
     private func setMode() {
         switch mode {
         case .solidColor:
-            coordinator.setEffect(.disabled)
+            effect = .none
         case .dynamicEffect:
-            coordinator.setEffect(effect)
+            // TODO: When more modes are added, return to the last selected mode.
+            effect = .rainbow
         }
     }
     
     private func setColor() {
-        colorWorkItem?.cancel()
-        
-        let now = Date()
-        let elapsed = now.timeIntervalSince(lastColorUpdate)
-        
-        if elapsed >= colorUpdateDelay {
-            lastColorUpdate = .now
-            let (red, green, blue) = color.rgbBytes
-            coordinator.setColor(
-                red: red,
-                green: green,
-                blue: blue,
-                brightness: UInt8(brightness.rounded())
-            )
-        } else {
-            let delay = colorUpdateDelay - elapsed
-            let workItem = DispatchWorkItem { [weak self] in self?.setColor() }
-            colorWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        colorThrottle.send { [weak self] in
+            guard let self else { return }
+            let (red, green, blue) = self.color.rgbBytes
+            let brightness = UInt8(self.brightness.rounded())
+            self.coordinator.setColor(red: red, green: green, blue: blue, brightness: brightness)
         }
     }
     
     private func setEffect() {
         coordinator.setEffect(effect)
+    }
+    
+    private func setEffectSpeed() {
+        effectSpeedThrottle.send { [weak self] in
+            guard let self else { return }
+            let value = UInt8(self.effectSpeed.rounded())
+            self.coordinator.setEffectSpeed(value)
+        }
+    }
+    
+    private func setEffectLength() {
+        effectLengthThrottle.send { [weak self] in
+            guard let self else { return }
+            let value = UInt8(self.effectLength.rounded())
+            self.coordinator.setEffectLength(value)
+        }
+    }
+}
+
+final class Throttle {
+    private let interval: TimeInterval
+    private var lastFire: Date = .distantPast
+    private var pending: DispatchWorkItem?
+
+    init(interval: TimeInterval) {
+        self.interval = interval
+    }
+    
+    func send(_ action: @escaping () -> Void) {
+        pending?.cancel()
+        let elapsed = Date().timeIntervalSince(lastFire)
+        if elapsed >= interval {
+            lastFire = .now
+            action()
+        } else {
+            let work = DispatchWorkItem { [weak self] in
+                self?.lastFire = .now
+                action()
+            }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + (interval - elapsed), execute: work)
+        }
+    }
+
+    func cancel() {
+        pending?.cancel()
+        pending = nil
     }
 }

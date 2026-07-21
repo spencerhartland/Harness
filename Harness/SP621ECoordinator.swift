@@ -11,6 +11,7 @@ import CoreBluetooth
 public final class SP621ECoordinator: NSObject {
     public var onStateChange: ((ConnectionState) -> Void)?
     public var onPrimaryControllerStateChange: ((SP621E.State) -> Void)?
+    public var currentSP621EState: (() -> SP621E.State?)?
     
     public private(set) var currentState: ConnectionState = .disconnected {
         didSet {
@@ -23,13 +24,14 @@ public final class SP621ECoordinator: NSObject {
     }
     
     private var central: CBCentralManager!
-    private let deviceName = "SP621E"
+    private let deviceName = "pup-aphex"
     private let requiredControllers = 2
     
     // Connected SP621E SPI LED controllers
     private var controllers: [UUID: SP621E] = [:]
     // Primary controller (first to connect)
     private var primaryIdentifier: UUID?
+    private var primaryState: SP621E.State?
     
     private let queue = DispatchQueue(label: "harness.ble")
     
@@ -54,12 +56,20 @@ public final class SP621ECoordinator: NSObject {
         forEachController { $0.setColor(red: red, green: green, blue: blue, brightness: brightness) }
     }
 
-    public func setBrightness(_ level: UInt8) {
-        forEachController { $0.setBrightness(level) }
+    public func setBrightness(_ value: UInt8) {
+        forEachController { $0.setBrightness(value) }
     }
 
-    public func setEffect(_ effect: SP621EEffect) {
+    public func setEffect(_ effect: SP621E.Effect) {
         forEachController { $0.setEffect(effect) }
+    }
+    
+    public func setEffectSpeed(_ speed: UInt8) {
+        forEachController { $0.setEffectSpeed(speed) }
+    }
+    
+    public func setEffectLength(_ length: UInt8) {
+        forEachController { $0.setEffectLength(length) }
     }
     
     private func forEachController(_ action: (SP621E) -> Void) {
@@ -78,15 +88,20 @@ public final class SP621ECoordinator: NSObject {
         } else {
             currentState = .connecting
         }
+        
+        if controllers.values.allSatisfy({ $0.state != .connected }) {
+            primaryIdentifier = nil
+            primaryState = nil
+        }
     }
 
     private func subscribeToUpdates(from controller: SP621E) {
         controller.onStateChange = { [weak self] _ in
-            self?.queue.async { self?.updateState() }
+            self?.updateState()
         }
         
         controller.onStateNotification = { [weak self] deviceState in
-            self?.queue.async { self?.handleStateNotification(from: controller, deviceState) }
+            self?.handleStateNotification(from: controller, deviceState)
         }
     }
 
@@ -94,11 +109,18 @@ public final class SP621ECoordinator: NSObject {
         // First controller to report state becomes primary.
         if primaryIdentifier == nil {
             primaryIdentifier = controller.identifier
+            primaryState = controllerState
             DispatchQueue.main.async { [weak self] in
                 self?.onPrimaryControllerStateChange?(controllerState)
             }
+        } else if controller.identifier != primaryIdentifier {
+            sync(controller)
         }
-        // TODO: Update secondary strap's state to match primary
+    }
+    
+    private func sync(_ controller: SP621E) {
+        guard let initialState = primaryState else { return }        
+        controller.applyState(initialState)
     }
 }
 
@@ -125,7 +147,7 @@ extension SP621ECoordinator: CBCentralManagerDelegate {
         // Ignore discovered peripherals
         guard controllers[peripheral.identifier] == nil else { return }
         
-        let controller = SP621E(peripheral: peripheral)
+        let controller = SP621E(peripheral: peripheral, queue: queue)
         subscribeToUpdates(from: controller)
         controllers[peripheral.identifier] = controller
         
@@ -165,7 +187,6 @@ extension SP621ECoordinator: CBCentralManagerDelegate {
     ) {
         controllers[peripheral.identifier]?.handleDisconnection()
         updateState()
-        // TODO (step 3): attempt reconnect to this specific peripheral and
-        // re-sync it to current group truth when it returns.
+        // TODO: attempt reconnect to this specific peripheral and sync upon connection.
     }
 }

@@ -67,94 +67,147 @@ struct RootView: View {
                 }
             }
             
-            Section("Color and Effects") {
+            Section("Appearance") {
                 Picker("Mode", selection: $harness.mode) {
-                    Text(SP621EMode.solidColor.rawValue).tag(SP621EMode.solidColor)
-                    Text(SP621EMode.dynamicEffect.rawValue).tag(SP621EMode.dynamicEffect)
+                    Text(SP621E.Mode.solidColor.rawValue)
+                        .tag(SP621E.Mode.solidColor)
+                    Text(SP621E.Mode.dynamicEffect.rawValue)
+                        .tag(SP621E.Mode.dynamicEffect)
                 }
                 .pickerStyle(.segmented)
-                
-                if harness.mode == .solidColor {
-                    ColorPicker(selection: $harness.color, supportsOpacity: false) {
-                        ControlLabel(
-                            "Color",
-                            systemImage: "paintpalette.fill",
-                            color: .orange
-                        )
-                    }
-                } else {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "rainbow")
-                            .symbolRenderingMode(.multicolor)
-                        Spacer()
-                    }
+            }
+            
+            Section {
+                switch harness.mode {
+                case .solidColor:
+                    colorControls
+                case .dynamicEffect:
+                    effectControls
                 }
             }
+            .listSectionSpacing(16)
         }
         .disabled(!harness.isPoweredOn)
         .dimmed(!harness.isPoweredOn)
     }
-}
-
-struct ControlLabel: View {
-    private let title: String
-    private let systemImage: String
-    private let color: Color
     
-    init(_ title: String, systemImage: String, color: Color) {
-        self.title = title
-        self.systemImage = systemImage
-        self.color = color
-    }
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: systemImage)
-                .padding(4)
-                .background {
-                    color
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .foregroundStyle(Color.white)
-                .bold()
-            Text(title)
+    private var colorControls: some View {
+        ColorPicker(selection: $harness.color, supportsOpacity: false) {
+            ControlLabel(
+                "Color",
+                systemImage: "paintpalette.fill",
+                color: .orange
+            )
         }
     }
-}
-
-struct StatusItem: View {
-    private let title: String
-    private let statusDescription: String
-    private let systemImage: String
-    private let color: Color
     
-    init(_ title: String, statusDescription: String, systemImage: String, color: Color) {
-        self.title = title
-        self.statusDescription = statusDescription
-        self.systemImage = systemImage
-        self.color = color
+    @ViewBuilder private var effectControls: some View {
+        Picker(selection: $harness.effect) {
+            Text("Rainbow").tag(SP621E.Effect.rainbow)
+        } label: {
+            ControlLabel(
+                "Effect",
+                systemImage: "sparkles",
+                color: .purple
+            )
+        }
+        .alignmentGuide(.listRowSeparatorLeading) { dimensions in
+            dimensions[.leading]
+        }
+        
+        Slider(value: $harness.effectSpeed, in: 1...10) {
+            Text("Effect Speed")
+        } minimumValueLabel: {
+            SliderValueLabel(systemImage: "tortoise.fill")
+        } maximumValueLabel: {
+            SliderValueLabel(systemImage: "hare.fill")
+        }
+        
+        Slider(value: $harness.effectLength, in: 1...150) {
+            Text("Effect Length")
+        } minimumValueLabel: {
+            SliderValueLabel(systemImage: "minus.circle.fill")
+        } maximumValueLabel: {
+            SliderValueLabel(systemImage: "plus.circle.fill")
+        }
     }
     
-    var body: some View {
-        HStack(spacing: 4) {
+    private struct SliderValueLabel: View {
+        let systemImage: String
+        let size: CGFloat
+        
+        init(systemImage: String, size: CGFloat = 24) {
+            self.systemImage = systemImage
+            self.size = size
+        }
+        
+        var body: some View {
             Image(systemName: systemImage)
-                .padding(4)
-                .foregroundStyle(color)
-                .imageScale(.medium)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title)
+                .foregroundStyle(.secondary)
+                .frame(width: size, height: size)
+        }
+    }
+    
+    private struct ControlLabel: View {
+        private let title: String
+        private let systemImage: String
+        private let color: Color
+        
+        init(_ title: String, systemImage: String, color: Color) {
+            self.title = title
+            self.systemImage = systemImage
+            self.color = color
+        }
+        
+        var body: some View {
+            HStack(spacing: 16) {
+                Image(systemName: systemImage)
+                    .padding(4)
+                    .background {
+                        color
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .aspectRatio(1.0, contentMode: .fill)
+                    }
+                    .foregroundStyle(Color.white)
                     .bold()
-                Text(statusDescription)
+                Text(title)
             }
-            .font(.caption)
-            .padding(.vertical, 4)
-            .padding(.trailing, 8)
         }
-        .padding(.horizontal, 8)
-        .background {
-            Capsule()
-                .fill(Color(uiColor: .systemFill))
+    }
+
+    private struct StatusItem: View {
+        private let title: String
+        private let statusDescription: String
+        private let systemImage: String
+        private let color: Color
+        
+        init(_ title: String, statusDescription: String, systemImage: String, color: Color) {
+            self.title = title
+            self.statusDescription = statusDescription
+            self.systemImage = systemImage
+            self.color = color
+        }
+        
+        var body: some View {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .padding(4)
+                    .foregroundStyle(color)
+                    .imageScale(.medium)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title)
+                        .bold()
+                    Text(statusDescription)
+                }
+                .font(.caption)
+                .padding(.vertical, 4)
+                .padding(.trailing, 8)
+            }
+            .padding(.horizontal, 8)
+            .background {
+                Capsule()
+                    .fill(Color(uiColor: .systemFill))
+            }
         }
     }
 }

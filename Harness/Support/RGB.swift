@@ -27,4 +27,17 @@ public struct RGB: Equatable {
             blue = rgb.blue
         }
     }
+    
+    init(red: UInt8, green: UInt8, blue: UInt8) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+    
+    init(from color: Color) {
+        let rgb = color.rgbBytes
+        self.red = rgb.red
+        self.green = rgb.green
+        self.blue = rgb.blue
+    }
 }
