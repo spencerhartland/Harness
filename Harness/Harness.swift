@@ -19,9 +19,10 @@ final class Harness {
     
     private var isApplyingRemoteState = false
     
-    var state: ConnectionState = .disconnected
-    
-    var isConnected: Bool { state == .connected }
+    var connectionState: ConnectionState = .disconnected
+    var isConnected: Bool { connectionState == .connected }
+    var isPaired: Bool = false
+    var discoveredDevices: [Device] = []
     
     var isPoweredOn: Bool = false {
         didSet {
@@ -67,10 +68,23 @@ final class Harness {
     }
     
     init() {
-        // Start observing changes to BLE connection state
-        coordinator.onStateChange = { [weak self] state in
+        // Start observing changes to coordinator mode
+        coordinator.onPairingStateChange = { [weak self] state in
             guard let self else { return }
-            self.state = state
+            self.isPaired = state
+        }
+        
+        // Start observing changes to discovered devices
+        coordinator.didDiscover = { [weak self] devices in
+            guard let self else { return }
+            print("didDiscover: Discovered \(devices.count) devices.")
+            self.discoveredDevices = devices
+        }
+        
+        // Start observing changes to BLE connection state
+        coordinator.onConnectionStateChange = { [weak self] state in
+            guard let self else { return }
+            self.connectionState = state
             if state != .connected {
                 brightnessThrottle.cancel()
                 colorThrottle.cancel()
@@ -96,6 +110,8 @@ final class Harness {
     }
     
     func connect() { coordinator.connect() }
+    
+    func pair(_ devices: [Device]) { coordinator.pair(devices) }
     
     private var currentHarnessState: SP621E.State {
         SP621E.State(
@@ -154,36 +170,5 @@ final class Harness {
             let value = UInt8(self.effectLength.rounded())
             self.coordinator.setEffectLength(value)
         }
-    }
-}
-
-final class Throttle {
-    private let interval: TimeInterval
-    private var lastFire: Date = .distantPast
-    private var pending: DispatchWorkItem?
-
-    init(interval: TimeInterval) {
-        self.interval = interval
-    }
-    
-    func send(_ action: @escaping () -> Void) {
-        pending?.cancel()
-        let elapsed = Date().timeIntervalSince(lastFire)
-        if elapsed >= interval {
-            lastFire = .now
-            action()
-        } else {
-            let work = DispatchWorkItem { [weak self] in
-                self?.lastFire = .now
-                action()
-            }
-            pending = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + (interval - elapsed), execute: work)
-        }
-    }
-
-    func cancel() {
-        pending?.cancel()
-        pending = nil
     }
 }

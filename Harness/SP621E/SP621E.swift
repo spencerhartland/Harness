@@ -8,7 +8,12 @@
 import Foundation
 import CoreBluetooth
 
+/// An object which provides functionality to communicate with and control
+/// a single SP621E SPI LED controller.
 public final class SP621E: NSObject {
+    
+    /// A mode of operation which determines if the SP621E controller displays a solid color or
+    /// one of its built-in dynamic lighting effects.
     public enum Mode: String {
         case solidColor = "Solid Color"
         case dynamicEffect = "Dynamic Effect"
@@ -65,16 +70,16 @@ public final class SP621E: NSObject {
     public var identifier: UUID { peripheral.identifier }
 
     /// Called when the connection state changes.
-    public var onStateChange: ((ConnectionState) -> Void)?
+    public var onConnectionStateChange: ((ConnectionState) -> Void)?
     /// Called when the controller reports its state (on connect).
     public var onStateNotification: ((State) -> Void)?
 
     public var deviceName: String = "SP621E"
 
-    public private(set) var state: ConnectionState = .disconnected {
+    public private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
-            guard state != oldValue else { return }
-            onStateChange?(state)
+            guard connectionState != oldValue else { return }
+            onConnectionStateChange?(connectionState)
         }
     }
     
@@ -90,17 +95,13 @@ public final class SP621E: NSObject {
     }
     
     public func connect() {
-        state = .connecting
-    }
-    
-    public func handleConnection() {
         peripheral.delegate = self
         peripheral.discoverServices([Bluetooth.serviceUUID])
     }
     
-    public func handleDisconnection() {
+    public func disconnect() {
         writeableCharacteristic = nil
-        state = .disconnected
+        connectionState = .disconnected
     }
 
     /// Ask the strip to report its current state.
@@ -145,7 +146,7 @@ public final class SP621E: NSObject {
     
     public func applyState(_ state: State) {
         queue.async { [weak self] in
-            guard let self, let writeableCharacteristic else { return }
+            guard let self else { return }
 
             send([Bluetooth.frameHeader, Bluetooth.Opcode.brightness, 0x01, state.brightness], withResponse: true)
 
@@ -193,7 +194,7 @@ public final class SP621E: NSObject {
     }
 }
 
-// MARK: CBPeripheralDelegate
+// MARK: - CBPeripheralDelegate
 
 extension SP621E: CBPeripheralDelegate {
     public func peripheral(
@@ -217,7 +218,7 @@ extension SP621E: CBPeripheralDelegate {
             if characteristic.properties.contains(.notify) {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
-            state = .connected
+            connectionState = .connected
             flushPending()
         }
     }
