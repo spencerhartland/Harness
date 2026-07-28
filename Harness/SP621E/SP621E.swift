@@ -8,8 +8,7 @@
 import Foundation
 import CoreBluetooth
 
-/// An object which provides functionality to communicate with and control
-/// a single SP621E SPI LED controller via Bluetooth Low Energy.
+/// An SP621E SPI LED controller.
 final class SP621E: NSObject {
     
     private enum Bluetooth {
@@ -100,6 +99,8 @@ final class SP621E: NSObject {
     
     /// The UUID associated with the controller.
     var identifier: UUID { peripheral.identifier }
+    
+    // MARK: State callbacks -
 
     /// Tells the coordinator when there is a change to the connection state of the controller.
     var onConnectionStateChange: ((ConnectionState) -> Void)?
@@ -170,8 +171,8 @@ final class SP621E: NSObject {
 
     /// Set the brightness of the LEDs connected to the controller.
     ///
-    /// - Parameter level: The desired brightness.
-    func setBrightness(_ level: UInt8) { sendCommand(for: .brightness, withBytes: [level]) }
+    /// - Parameter value: The desired brightness.
+    func setBrightness(_ value: UInt8) { sendCommand(for: .brightness, withBytes: [value]) }
 
     /// Display a built-in dynamic lighting effect.
     ///

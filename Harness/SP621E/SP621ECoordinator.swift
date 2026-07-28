@@ -8,17 +8,27 @@
 import Foundation
 import CoreBluetooth
 
-public final class SP621ECoordinator: NSObject {
-    // Onboarding callbacks
-    public var onPairingStateChange: ((Bool) -> Void)?
-    public var didDiscover: (([Device]) -> Void)?
+// TODO: Sync state when controller joins mid-session.
+
+/// Coordinates the behavior of one or more SP621E SPI LED controllers.
+final class SP621ECoordinator: NSObject {
     
-    // Ready state callbacks
-    public var onConnectionStateChange: ((ConnectionState) -> Void)?
-    public var onPrimaryControllerStateChange: ((SP621E.State) -> Void)?
-    public var currentSP621EState: (() -> SP621E.State?)?
+    // MARK: Onboarding callbacks -
+    /// Publishes changes to the coordinator's pairing state.
+    var onPairingStateChange: ((Bool) -> Void)?
+    /// Publishes a list of devices discovered by the coordinator.
+    var didDiscover: (([Device]) -> Void)?
     
-    public private(set) var connectionState: ConnectionState = .disconnected {
+    // MARK: Ready state callbacks -
+    /// Publishes changes to the coordinator's connection state.
+    var onConnectionStateChange: ((ConnectionState) -> Void)?
+    /// Publishes changes to the state of the primary controller.
+    ///
+    /// The primary controller is the first to connect. The state of subsequent controllers is
+    /// synchronized to the state of the primary controller upon connection.
+    var onPrimaryControllerStateChange: ((SP621E.State) -> Void)?
+    
+    private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
             guard connectionState != oldValue else { return }
             DispatchQueue.main.async { [weak self] in
@@ -40,45 +50,47 @@ public final class SP621ECoordinator: NSObject {
     
     private var central: CBCentralManager!
     private let deviceName = "pup-aphex" // TODO: Change to 'SP621E'
-    
-    // Storage for paired controllers
+
     private let deviceStore = DeviceStore()
-    // Connected controllers
     private var controllers: [UUID: SP621E] = [:]
-    // Expected number of connected controllers
     private var expectedControllerCount: Int { deviceStore.devices.count }
     
     private var discoveredDevices: [UUID: Device] = [:]
     
-    // Primary controller (first to connect)
     private var primaryIdentifier: UUID?
     private var primaryState: SP621E.State?
     
     private let queue = DispatchQueue(label: "harness.ble")
     
-    public override init() {
+    override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: queue)
     }
     
-    public func connect() {
+    // MARK: Pairing and Connection -
+    
+    /// Connects to controllers.
+    ///
+    /// If paired controllers exist, the coordinator connects directly to them.  Otherwise, the
+    /// coordinator begins searching and publishes a list of discovered devices.
+    func connect() {
         queue.async { [weak self] in
             guard let self, self.central.state == .poweredOn else { return }
             
             if self.deviceStore.isEmpty {
-                print("Searching for devices...")
                 self.searchForDevices()
             } else {
-                print("Connecting to paired devices...")
                 self.connectPairedDevices()
             }
         }
     }
     
-    public func pair(_ devices: [Device]) {
+    /// Pairs the specified devices.
+    ///
+    /// - Parameter devices: The devices to pair.
+    func pair(_ devices: [Device]) {
         queue.async { [weak self] in
             guard let self, !devices.isEmpty else { return }
-            print("Attempting to pair...")
             self.central.stopScan()
             self.deviceStore.save(devices)
             self.discoveredDevices.removeAll()
@@ -86,7 +98,8 @@ public final class SP621ECoordinator: NSObject {
         }
     }
     
-    public func forgetDevices() {
+    /// Forgets all paired devices.
+    func forgetDevices() {
         queue.async { [weak self] in
             guard let self else { return }
             for controller in self.controllers.values {
@@ -98,30 +111,6 @@ public final class SP621ECoordinator: NSObject {
             self.deviceStore.forgetDevices()
             self.searchForDevices()
         }
-    }
-    
-    public func powerOn()  { forEachController { $0.powerOn() } }
-    
-    public func powerOff() { forEachController { $0.powerOff() } }
-    
-    public func setColor(red: UInt8, green: UInt8, blue: UInt8, brightness: UInt8) {
-        forEachController { $0.setColor(red: red, green: green, blue: blue, brightness: brightness) }
-    }
-
-    public func setBrightness(_ value: UInt8) {
-        forEachController { $0.setBrightness(value) }
-    }
-
-    public func setEffect(_ effect: SP621E.Effect) {
-        forEachController { $0.setEffect(effect) }
-    }
-    
-    public func setEffectSpeed(_ speed: UInt8) {
-        forEachController { $0.setEffectSpeed(speed) }
-    }
-    
-    public func setEffectLength(_ length: UInt8) {
-        forEachController { $0.setEffectLength(length) }
     }
     
     private func searchForDevices() {
@@ -151,13 +140,54 @@ public final class SP621ECoordinator: NSObject {
         }
     }
     
+    // MARK: SP621E Commands -
+    
+    /// Power on the LEDs connected to the paired controllers.
+    func powerOn()  { forEachController { $0.powerOn() } }
+    
+    /// Power off the LEDs connected to the paired controllers.
+    func powerOff() { forEachController { $0.powerOff() } }
+    
+    /// Set the LEDs connected to the paired controllers to the specified RGB color and brightness.
+    ///
+    /// - Parameters:
+    ///     - red: The red value of the desired color.
+    ///     - green: The green value of the desired color.
+    ///     - blue: The blue value of the desired color.
+    ///     - brightness: The desired brightness of the LEDs connected to the paired controllers.
+    func setColor(red: UInt8, green: UInt8, blue: UInt8, brightness: UInt8) {
+        forEachController { $0.setColor(red: red, green: green, blue: blue, brightness: brightness) }
+    }
+    
+    /// Set the brightness of the LEDs connected to the paired controllers.
+    ///
+    /// - Parameter value: The desired brightness.
+    func setBrightness(_ value: UInt8) { forEachController { $0.setBrightness(value) } }
+
+    /// Display a built-in dynamic lighting effect.
+    ///
+    /// - Parameter effect: The desired effect.
+    func setEffect(_ effect: SP621E.Effect) { forEachController { $0.setEffect(effect) } }
+    
+    /// Set the speed of built-in dynamic lighting effects.
+    ///
+    /// - Parameter speed: The desired speed at which effects will be displayed.
+    func setEffectSpeed(_ speed: UInt8) { forEachController { $0.setEffectSpeed(speed) } }
+    
+    /// Set the length of built-in dynamic lighting effects.
+    ///
+    /// - Parameter length: The desired duration of a single loop of an effect.
+    func setEffectLength(_ length: UInt8) { forEachController { $0.setEffectLength(length) } }
+    
     private func forEachController(_ action: (SP621E) -> Void) {
         for controller in controllers.values {
             action(controller)
         }
     }
     
-    private func updateState() {
+    // MARK: State management -
+    
+    private func updateConnectionState() {
         let connectedCount = controllers.values.filter { $0.connectionState == .connected }.count
 
         if expectedControllerCount > 0, connectedCount == expectedControllerCount {
@@ -175,7 +205,7 @@ public final class SP621ECoordinator: NSObject {
     }
 
     private func subscribeToUpdates(from controller: SP621E) {
-        controller.onConnectionStateChange = { [weak self] _ in self?.updateState() }
+        controller.onConnectionStateChange = { [weak self] _ in self?.updateConnectionState() }
         
         controller.onStateNotification = { [weak self] deviceState in
             self?.handleStateNotification(from: controller, deviceState)
@@ -196,23 +226,22 @@ public final class SP621ECoordinator: NSObject {
     }
     
     private func sync(_ controller: SP621E) {
-        guard let initialState = primaryState else { return }        
-        controller.applyState(initialState)
+        guard let primaryState else { return }
+        controller.applyState(primaryState)
     }
     
     private func publishDiscoveredDevices() {
-        let devices =  discoveredDevices.values.sorted {
-            guard let device0RSSI = $0.rssi, let device1RSSI = $1.rssi else { return true }
-            return device0RSSI > device1RSSI
-        }
+        let devices =  discoveredDevices.values.sorted { $0.rssi > $1.rssi }
         DispatchQueue.main.async { [weak self] in
             self?.didDiscover?(devices)
         }
     }
 }
 
+// MARK: CBCentralManagerDelegate -
+
 extension SP621ECoordinator: CBCentralManagerDelegate {
-    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
             connect()
@@ -221,7 +250,7 @@ extension SP621ECoordinator: CBCentralManagerDelegate {
         }
     }
     
-    public func centralManager(
+    func centralManager(
         _ central: CBCentralManager,
         didDiscover peripheral: CBPeripheral,
         advertisementData: [String: Any],
@@ -253,33 +282,33 @@ extension SP621ECoordinator: CBCentralManagerDelegate {
         }
     }
     
-    public func centralManager(
+    func centralManager(
         _ central: CBCentralManager,
         didConnect peripheral: CBPeripheral
     ) {
         controllers[peripheral.identifier]?.connect()
     }
 
-    public func centralManager(
+    func centralManager(
         _ central: CBCentralManager,
         didFailToConnect peripheral: CBPeripheral,
         error: Error?
     ) {
         controllers[peripheral.identifier]?.disconnect()
-        updateState()
+        updateConnectionState()
         
         if central.state == .poweredOn, isPaired {
             central.scanForPeripherals(withServices: nil)
         }
     }
 
-    public func centralManager(
+    func centralManager(
         _ central: CBCentralManager,
         didDisconnectPeripheral peripheral: CBPeripheral,
         error: Error?
     ) {
         controllers[peripheral.identifier]?.disconnect()
-        updateState()
+        updateConnectionState()
         
         if isPaired, deviceStore.identifiers.contains(peripheral.identifier) {
             central.connect(peripheral)

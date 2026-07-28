@@ -105,8 +105,6 @@ final class Harness {
             self.isPoweredOn = newState.isOn
             self.isApplyingRemoteState = false
         }
-        
-        coordinator.currentSP621EState = { [weak self] in self?.currentHarnessState }
     }
     
     func connect() { coordinator.connect() }
