@@ -6,22 +6,8 @@
     {
       "layers" : [
         {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "automatic-gradient" : "extended-gray:0.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "automatic-gradient" : "extended-gray:1.00000,1.00000"
-              }
-            }
-          ],
-          "glass" : true,
-          "image-name" : "pawprint.fill 4.svg",
-          "name" : "pawprint",
+          "image-name" : "pawprint.fill.svg",
+          "name" : "pawprint.fill",
           "position" : {
             "scale" : 0.5,
             "translation-in-points" : [
@@ -33,11 +19,11 @@
       ],
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.6
+        "opacity" : 0.5
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.2
+        "value" : 0.3
       }
     }
   ],

@@ -12,33 +12,51 @@ struct ControlView: View {
     
     @Binding var harness: Harness
     
-    @State private var isConnected: Bool = false
+    private var posessiveUsername: String {
+        guard let last = username.last else { return username }
+        return last == "s" ? "\(username)'" : "\(username)'s"
+    }
     
     var body: some View {
         List {
             harnessStatus
                 .listRowBackground(Color.clear)
+                .listRowInsets(.leading, 0)
             harnessControls
+                .disabled(!harness.isConnected)
+                .dimmed(!harness.isConnected)
         }
         .onAppear { harness.connect() }
+        .navigationTitle(username.isEmpty ? "My Harness" : "\(posessiveUsername) Harness")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Options", systemImage: "ellipsis") {
+                    NavigationLink {
+                        EditNameView()
+                    } label: {
+                        Label("Edit Name", systemImage: "pencil")
+                    }
+                    
+                    NavigationLink {
+                        ManageDevicesView(harness: $harness)
+                    } label: {
+                        Label("Manage Harness", systemImage: "gearshape.fill")
+                    }
+                }
+            }
+        }
     }
     
     @ViewBuilder private var harnessStatus: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("\(username)'s Harness")
-                .font(.largeTitle.bold())
-            HStack {
-                let connectionStatusDescription = harness.connectionState == .connected ? "Connected" : "Disconnected"
-                let connectionStatusIcon = harness.connectionState == .connected ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash"
-                
-                StatusItem(
-                    "Bluetooth",
-                    statusDescription: connectionStatusDescription,
-                    systemImage: connectionStatusIcon,
-                    color: .blue
-                )
-            }
-        }
+        let connectionStatusIcon = harness.connectionState == .disconnected ? "antenna.radiowaves.left.and.right.slash" : "antenna.radiowaves.left.and.right"
+        
+        StatusItem(
+            "Bluetooth",
+            statusDescription: harness.connectionState.rawValue,
+            systemImage: connectionStatusIcon,
+            color: .blue
+        )
+        .symbolEffect(.variableColor, isActive: harness.connectionState == .connecting)
     }
     
     @ViewBuilder private var harnessControls: some View {
@@ -209,5 +227,7 @@ struct ControlView: View {
 #Preview {
     @Previewable @State var harness = Harness()
     
-    ControlView(harness: $harness)
+    NavigationStack {
+        ControlView(harness: $harness)
+    }
 }

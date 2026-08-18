@@ -13,6 +13,8 @@ struct PairingView: View {
     
     @Binding var harness: Harness
     
+    @State private var selectedDevices: [Device] = []
+    
     var body: some View {
         VStack {
             VStack(alignment: .leading) {
@@ -34,7 +36,24 @@ struct PairingView: View {
             
             if harness.discoveredDevices.count > 2 {
                 List(harness.discoveredDevices) { device in
-                    Text(device.name)
+                    let selected = selectedDevices.contains(device)
+                    
+                    Button {
+                        if selected {
+                            selectedDevices.removeAll { $0 == device }
+                        } else {
+                            selectedDevices.append(device)
+                        }
+                    } label: {
+                        HStack {
+                            Text(device.name)
+                            Spacer()
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.blue)
+                                .symbolEffect(.drawOn, isActive: !selected)
+                        }
+                    }
+                    .foregroundStyle(.primary)
                 }
                 .scrollContentBackground(.hidden)
             } else {
@@ -56,6 +75,9 @@ struct PairingView: View {
         .onAppear { harness.connect() }
         .onChange(of: harness.discoveredDevices) { _, discoveredDevices in
             if discoveredDevices.count == 2 { harness.pair(discoveredDevices) }
+        }
+        .onChange(of: selectedDevices) { _, devices in
+            if devices.count == 2 { harness.pair(devices) }
         }
     }
     

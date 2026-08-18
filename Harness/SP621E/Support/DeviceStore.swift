@@ -23,39 +23,39 @@ public struct Device: Codable, Identifiable, Equatable {
     }
 }
 
-/// A store of bluetooth devices.
+/// A store of Bluetooth devices.
 public final class DeviceStore {
     private let defaults = UserDefaults.standard
     private static var savedDevicesKey: String = "SavedDevices"
     
-    /// Persisted bluetooth devices.
-    public private(set) var devices: [Device] = []
-    /// The identifiers of all persisted bluetooth devices.
-    public var identifiers: [UUID] { devices.map(\.id) }
+    /// The identifiers of persisted devices.
+    public private(set) var identifiers: [UUID] = []
     /// A boolean value indicating whether there are no persisted devices.
-    public var isEmpty: Bool { devices.isEmpty }
+    public var isEmpty: Bool { identifiers.isEmpty }
+    /// The number of persisted devices.
+    public var deviceCount: Int { identifiers.count }
     
     public init() {
-        guard let devicesData = defaults.data(forKey: Self.savedDevicesKey),
-              let decodedDevices = try? JSONDecoder().decode([Device].self, from: devicesData) else {
+        guard let data = defaults.data(forKey: Self.savedDevicesKey),
+              let decodedIdentifiers = try? JSONDecoder().decode([UUID].self, from: data) else {
             return
         }
-        self.devices = decodedDevices
+        self.identifiers = decodedIdentifiers
     }
     
     /// Persists the specified devices.
     ///
     /// - Parameter devices: The devices to persist.
     public func save(_ devices: [Device]) {
-        self.devices = devices
-        if let devicesData = try? JSONEncoder().encode(devices) {
-            defaults.set(devicesData, forKey: Self.savedDevicesKey)
+        for device in devices { self.identifiers.append(device.id) }
+        if let data = try? JSONEncoder().encode(self.identifiers) {
+            defaults.set(data, forKey: Self.savedDevicesKey)
         }
     }
     
     /// Forgets all persisted devices.
     public func forgetDevices() {
-        devices = []
+        self.identifiers = []
         defaults.removeObject(forKey: Self.savedDevicesKey)
     }
 }

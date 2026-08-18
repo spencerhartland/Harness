@@ -8,6 +8,7 @@
 import SwiftUI
 import Observation
 
+/// An RGB LED harness driven by dual SP621E SPI LED controllers.
 @Observable
 final class Harness {
     private let coordinator = SP621ECoordinator()
@@ -23,6 +24,7 @@ final class Harness {
     var isConnected: Bool { connectionState == .connected }
     var isPaired: Bool = false
     var discoveredDevices: [Device] = []
+    var controllers: [UUID: String] = [:]
     
     var isPoweredOn: Bool = false {
         didSet {
@@ -105,11 +107,20 @@ final class Harness {
             self.isPoweredOn = newState.isOn
             self.isApplyingRemoteState = false
         }
+        
+        coordinator.currentHarnessState = { return self.currentHarnessState }
+        
+        coordinator.didConnect = { [weak self] controllers in
+            guard let self else { return }
+            self.controllers = controllers
+        }
     }
     
     func connect() { coordinator.connect() }
     
     func pair(_ devices: [Device]) { coordinator.pair(devices) }
+    
+    func forget() { coordinator.forgetDevices() }
     
     private var currentHarnessState: SP621E.State {
         SP621E.State(

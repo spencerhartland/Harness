@@ -8,8 +8,6 @@
 import Foundation
 import CoreBluetooth
 
-// TODO: Sync state when controller joins mid-session.
-
 /// Coordinates the behavior of one or more SP621E SPI LED controllers.
 final class SP621ECoordinator: NSObject {
     
@@ -27,6 +25,13 @@ final class SP621ECoordinator: NSObject {
     /// The primary controller is the first to connect. The state of subsequent controllers is
     /// synchronized to the state of the primary controller upon connection.
     var onPrimaryControllerStateChange: ((SP621E.State) -> Void)?
+    /// Receives updates to requested harness state.
+    ///
+    /// This is the state requested by the user. Reflects changes to state made in-app.
+    var currentHarnessState: (() -> SP621E.State)?
+    /// Publishes a list containing the identifiers and names of controllers connected
+    /// to the coordinator.
+    var didConnect: (([UUID: String]) -> Void)?
     
     private(set) var connectionState: ConnectionState = .disconnected {
         didSet {
@@ -49,13 +54,13 @@ final class SP621ECoordinator: NSObject {
     }
     
     private var central: CBCentralManager!
-    private let deviceName = "pup-aphex" // TODO: Change to 'SP621E'
+    private let deviceName = "SP621E"
 
+    private var discoveredDevices: [UUID: Device] = [:]
+    
     private let deviceStore = DeviceStore()
     private var controllers: [UUID: SP621E] = [:]
-    private var expectedControllerCount: Int { deviceStore.devices.count }
-    
-    private var discoveredDevices: [UUID: Device] = [:]
+    private var expectedControllerCount: Int { deviceStore.deviceCount }
     
     private var primaryIdentifier: UUID?
     private var primaryState: SP621E.State?
@@ -134,6 +139,12 @@ final class SP621ECoordinator: NSObject {
             central.connect(peripheral)
         }
         
+        var connectedControllers: [UUID: String] = [:]
+        for (identifier, controller) in controllers {
+            connectedControllers[identifier] = controller.peripheral.name ?? deviceName
+        }
+        self.didConnect?(connectedControllers)
+        
         let missingDevices = Set(deviceStore.identifiers).subtracting(controllers.keys)
         if !missingDevices.isEmpty {
             central.scanForPeripherals(withServices: nil)
@@ -179,6 +190,16 @@ final class SP621ECoordinator: NSObject {
     /// - Parameter length: The desired duration of a single loop of an effect.
     func setEffectLength(_ length: UInt8) { forEachController { $0.setEffectLength(length) } }
     
+    /// Change the name of the controller with the specified identifier.
+    ///
+    /// - Parameters:
+    ///     - id: The identifier of the controller to rename.
+    ///     - name: The new name of the controller.
+    func renameController(with id: UUID, to name: String) {
+        guard let controller = controllers[id] else { return } // TODO: Throw error
+        controller.rename(to: name)
+    }
+    
     private func forEachController(_ action: (SP621E) -> Void) {
         for controller in controllers.values {
             action(controller)
@@ -192,7 +213,7 @@ final class SP621ECoordinator: NSObject {
 
         if expectedControllerCount > 0, connectedCount == expectedControllerCount {
             connectionState = .connected
-        } else if controllers.isEmpty {
+        } else if connectedCount == 0 {
             connectionState = .disconnected
         } else {
             connectionState = .connecting
@@ -220,14 +241,22 @@ final class SP621ECoordinator: NSObject {
             DispatchQueue.main.async { [weak self] in
                 self?.onPrimaryControllerStateChange?(controllerState)
             }
-        } else if controller.identifier != primaryIdentifier {
+        } else {
             sync(controller)
         }
     }
     
     private func sync(_ controller: SP621E) {
-        guard let primaryState else { return }
-        controller.applyState(primaryState)
+        let syncState: SP621E.State?
+        
+        if connectionState == .connected {
+            syncState = currentHarnessState?()
+        } else {
+            syncState = primaryState
+        }
+        
+        guard let syncState else { return }
+        controller.applyState(syncState)
     }
     
     private func publishDiscoveredDevices() {

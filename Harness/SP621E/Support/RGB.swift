@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// A color expressed as distinct red, green, and blue values.
 public struct RGB: Equatable {
     public var red: UInt8
     public var green: UInt8

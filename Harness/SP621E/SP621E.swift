@@ -24,6 +24,7 @@ final class SP621E: NSObject {
             case brightness = 0x66
             case color = 0x69
             case queryState = 0x70
+            case rename = 0x61
         }
     }
     
@@ -188,6 +189,11 @@ final class SP621E: NSObject {
     ///
     /// - Parameter length: The desired duration of a single loop of an effect.
     func setEffectLength(_ length: UInt8) { sendCommand(for: .effectLength, withBytes: [length]) }
+    
+    /// Change the name of the controller.
+    ///
+    /// - Parameter name: The name the controller advertises over Bluetooth.
+    func rename(to name: String) { sendCommand(for: .rename, withBytes: Array(name.utf8)) }
     
     /// Applies the specified state to the controller.
     ///
