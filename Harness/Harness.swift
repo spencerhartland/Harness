@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Observation
+import SwiftSP621E
 
 /// An RGB LED harness driven by dual SP621E SPI LED controllers.
 @Observable
@@ -116,9 +117,15 @@ final class Harness {
         }
     }
     
-    func connect() { coordinator.connect() }
+    func connect() {
+        Task { @BluetoothActor in
+            coordinator.connect()
+        }
+    }
     
-    func pair(_ devices: [Device]) { coordinator.pair(devices) }
+    func pair(_ devices: [Device]) {
+        coordinator.pair(devices)
+    }
     
     func forget() { coordinator.forgetDevices() }
     
