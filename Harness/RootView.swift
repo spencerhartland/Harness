@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct RootView: View {
     @AppStorage(UserDefaults.Keys.onboardingRequired) private var onboardingRequired: Bool = true

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct OnboardingView: View {
     @Environment(\.screenSize) private var screenSize

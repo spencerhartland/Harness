@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct PairingView: View {
     @Environment(\.screenSize) private var screenSize
@@ -34,50 +35,52 @@ struct PairingView: View {
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
             
-            if harness.discoveredDevices.count > 2 {
-                List(harness.discoveredDevices) { device in
-                    let selected = selectedDevices.contains(device)
-                    
-                    Button {
-                        if selected {
-                            selectedDevices.removeAll { $0 == device }
-                        } else {
-                            selectedDevices.append(device)
-                        }
-                    } label: {
-                        HStack {
-                            Text(device.name)
-                            Spacer()
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.blue)
-                                .symbolEffect(.drawOn, isActive: !selected)
-                        }
+            List(harness.discoveredDevices) { device in
+                let selected = selectedDevices.contains(device)
+                
+                Button {
+                    if selected {
+                        selectedDevices.removeAll { $0 == device }
+                    } else {
+                        selectedDevices.append(device)
                     }
-                    .foregroundStyle(.primary)
+                } label: {
+                    HStack {
+                        Text(device.name)
+                        Spacer()
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(.blue)
+                            .symbolEffect(.drawOn, isActive: !selected)
+                    }
                 }
-                .scrollContentBackground(.hidden)
-            } else {
-                Spacer()
+                .foregroundStyle(.primary)
             }
+            .scrollContentBackground(.hidden)
             
-            Button {
-                onboardingRequired = false
-            } label: {
-                Text("Continue")
-                    .font(.body.bold())
-                    .padding(8)
+            Group {
+                if harness.isPaired {
+                    Button {
+                        onboardingRequired = false
+                    } label: {
+                        Text("Continue")
+                    }
+                } else {
+                    Button {
+                        harness.pair(selectedDevices)
+                    } label: {
+                        Text("Pair")
+                    }
+                }
             }
             .buttonStyle(.glassProminent)
             .buttonSizing(.flexible)
-            .disabled(!harness.isPaired)
+            .controlSize(.extraLarge)
+            .font(.body.bold())
         }
         .padding(32)
-        .onAppear { harness.connect() }
-        .onChange(of: harness.discoveredDevices) { _, discoveredDevices in
-            if discoveredDevices.count == 2 { harness.pair(discoveredDevices) }
-        }
-        .onChange(of: selectedDevices) { _, devices in
-            if devices.count == 2 { harness.pair(devices) }
+        .onAppear {
+            harness.connect()
+            selectedDevices = [Device](harness.discoveredDevices.prefix(2))
         }
     }
     

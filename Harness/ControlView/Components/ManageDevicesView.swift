@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct ManageDevicesView: View {
     
@@ -16,50 +17,33 @@ struct ManageDevicesView: View {
     var body: some View {
         List {
             Section {
-                harness.controllers.forEach { (identifier, name) in
-                    NavigationLink(name) { EditControllerNameView(for: controller) }
+                let controllers = harness.controllers.sorted(by: { $0.value < $1.value })
+                
+                ForEach(controllers, id: \.key) { (id, name) in
+                    NavigationLink(name) {
+                        EditControllerNameView(id: id, name: name, harness: $harness)
+                    }
                 }
             } header: {
                 Text("Controllers")
             }
         }
+        .navigationTitle("Manage Harness")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Forget") {
-                    shouldShowForgetConfirmation = true
-                }
-                .confirmationDialog("Forget", isPresented: $shouldShowForgetConfirmation) {
-                    Button("Forget", role: .destructive) { harness.forget() }
-                } message: {
-                    Text("Forget this harness?")
-                }
-            }
+            ToolbarItem(placement: .topBarTrailing) { forgetHarnessButton }
         }
     }
     
-    // TODO: Discover opcode for name change and implement in SP621E / Coordinator
-    private struct EditControllerNameView: View {
-        private let controllerID: UUID
-        
-        @State private var controllerName: String
-        
-        init(for controller: Device) {
-            self.controllerID = controller.id
-            self.controllerName = controller.name
+    private var forgetHarnessButton: some View {
+        Button("Forget") {
+            shouldShowForgetConfirmation = true
         }
-        
-        var body: some View {
-            List {
-                Section {
-                    TextField(
-                        "Controller Name",
-                        text: $controllerName,
-                        prompt: Text("Controller Name")
-                    )
-                } header: {
-                    Text("Controller Name")
-                }
-            }
+        .foregroundStyle(.red)
+        .confirmationDialog("Forget", isPresented: $shouldShowForgetConfirmation) {
+            Button("Forget", role: .destructive) { harness.forgetDevices() }
+        } message: {
+            Text("Forget this harness?")
         }
     }
 }

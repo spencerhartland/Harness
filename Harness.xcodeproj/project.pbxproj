@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		000EE20A3034215B008EA7C2 /* SwiftSP621E in Frameworks */ = {isa = PBXBuildFile; productRef = 000EE2093034215B008EA7C2 /* SwiftSP621E */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		00EC1BFB30045F5D002AC3F1 /* Harness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Harness.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -22,6 +26,7 @@
 		00EC1BF830045F5D002AC3F1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				000EE20A3034215B008EA7C2 /* SwiftSP621E in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -60,6 +65,9 @@
 				00EC1BFD30045F5D002AC3F1 /* Harness */,
 			);
 			name = Harness;
+			packageProductDependencies = (
+				000EE2093034215B008EA7C2 /* SwiftSP621E */,
+			);
 			productName = Harness;
 			productReference = 00EC1BFB30045F5D002AC3F1 /* Harness.app */;
 			productType = "com.apple.product-type.application";
@@ -88,6 +96,9 @@
 			);
 			mainGroup = 00EC1BF230045F5D002AC3F1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				000EE2083034215B008EA7C2 /* XCLocalSwiftPackageReference "../SwiftSP621E" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 00EC1BFC30045F5D002AC3F1 /* Products */;
 			projectDirPath = "";
@@ -334,6 +345,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		000EE2083034215B008EA7C2 /* XCLocalSwiftPackageReference "../SwiftSP621E" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../SwiftSP621E;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		000EE2093034215B008EA7C2 /* SwiftSP621E */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SwiftSP621E;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 00EC1BF330045F5D002AC3F1 /* Project object */;
 	validationLevel = 1;
