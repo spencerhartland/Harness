@@ -2,17 +2,17 @@
 //  Harness.swift
 //  Harness
 //
-//  Created by Spencer Hartland on 7/12/26.
+//  Created by Spencer Hartland on 8/21/26.
 //
 
+import Foundation
 import SwiftUI
-import Observation
 import SwiftSP621E
 
-/// An RGB LED harness driven by dual SP621E SPI LED controllers.
+@MainActor
 @Observable
-final class Harness {
-    private let coordinator = SP621ECoordinator()
+public final class Harness {
+    private var manager = SP621EManager()
     
     private let brightnessThrottle = Throttle(interval: 0.08)
     private let colorThrottle = Throttle(interval: 0.08)
@@ -21,170 +21,164 @@ final class Harness {
     
     private var isApplyingRemoteState = false
     
-    var connectionState: ConnectionState = .disconnected
-    var isConnected: Bool { connectionState == .connected }
-    var isPaired: Bool = false
-    var discoveredDevices: [Device] = []
-    var controllers: [UUID: String] = [:]
+    public private(set) var isPaired: Bool = false
+    public private(set) var connectionState: ConnectionState = .disconnected
+    public var isConnected: Bool { connectionState == .connected }
+    public private(set) var discoveredDevices: [Device] = []
+    public private(set) var controllers: [UUID: String] = [:]
     
-    var isPoweredOn: Bool = false {
+    public var isOn: Bool = false {
         didSet {
             guard !isApplyingRemoteState else { return }
-            isPoweredOn ? coordinator.powerOn() : coordinator.powerOff()
-        }
-    }
-    var brightness: Double = 0.0 {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setBrightness()
-        }
-    }
-    var mode: SP621E.Mode = .solidColor {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setMode()
-        }
-    }
-    var color: Color = Color(red: 255, green: 0, blue: 0) {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setColor()
-        }
-    }
-    var effect: SP621E.Effect = .none {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setEffect()
-        }
-    }
-    var effectSpeed: Double = 0.0 {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setEffectSpeed()
-        }
-    }
-    var effectLength: Double = 0.0 {
-        didSet {
-            guard !isApplyingRemoteState else { return }
-            setEffectLength()
+            isOn ? manager.powerOn() : manager.powerOff()
         }
     }
     
-    init() {
-        // Start observing changes to coordinator mode
-        coordinator.onPairingStateChange = { [weak self] state in
-            guard let self else { return }
-            self.isPaired = state
-        }
-        
-        // Start observing changes to discovered devices
-        coordinator.didDiscover = { [weak self] devices in
-            guard let self else { return }
-            print("didDiscover: Discovered \(devices.count) devices.")
-            self.discoveredDevices = devices
-        }
-        
-        // Start observing changes to BLE connection state
-        coordinator.onConnectionStateChange = { [weak self] state in
-            guard let self else { return }
-            self.connectionState = state
-            if state != .connected {
-                brightnessThrottle.cancel()
-                colorThrottle.cancel()
-                effectSpeedThrottle.cancel()
-                effectLengthThrottle.cancel()
+    public var brightness: Double = 0.0 {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            brightnessThrottle.send {
+                let value = UInt8(self.brightness.rounded())
+                self.manager.setBrightness(value)
             }
         }
-        // Start observing changes to harness state
-        coordinator.onPrimaryControllerStateChange = { [weak self] newState in
-            guard let self else { return }
-            self.isApplyingRemoteState = true
-            self.brightness = Double(newState.brightness)
-            self.color = newState.rgb.color
-            self.mode = newState.mode
-            if let effect = SP621E.Effect(rawValue: newState.effectIndex) { self.effect = effect }
-            self.effectSpeed = Double(newState.effectSpeed)
-            self.effectLength = Double(newState.effectLength)
-            self.isPoweredOn = newState.isOn
-            self.isApplyingRemoteState = false
-        }
-        
-        coordinator.currentHarnessState = { return self.currentHarnessState }
-        
-        coordinator.didConnect = { [weak self] controllers in
-            guard let self else { return }
-            self.controllers = controllers
+    }
+    
+    public var mode: SP621EMode = .solidColor {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            switch mode {
+            case .solidColor:
+                effect = .none
+            case .dynamicEffect:
+                // TODO: When more modes are added, return to the last selected mode.
+                effect = .rainbow
+            }
         }
     }
     
-    func connect() {
-        Task { @BluetoothActor in
-            coordinator.connect()
+    public var color: Color = Color(red: 255, green: 0, blue: 0) {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            colorThrottle.send {
+                let (red, green, blue) = self.color.rgbBytes
+                let brightness = UInt8(self.brightness.rounded())
+                self.manager.setColor(red: red, green: green, blue: blue, brightness: brightness)
+            }
         }
     }
     
-    func pair(_ devices: [Device]) {
-        coordinator.pair(devices)
+    public var effect: SP621EEffect = .none {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            manager.setEffect(effect)
+        }
     }
     
-    func forget() { coordinator.forgetDevices() }
+    public var effectSpeed: Double = 0.0 {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            effectSpeedThrottle.send {
+                let value = UInt8(self.effectSpeed.rounded())
+                self.manager.setEffectSpeed(value)
+            }
+        }
+    }
     
-    private var currentHarnessState: SP621E.State {
+    public var effectLength: Double = 0.0 {
+        didSet {
+            guard !isApplyingRemoteState else { return }
+            effectLengthThrottle.send {
+                let value = UInt8(self.effectLength.rounded())
+                self.manager.setEffectLength(value)
+            }
+        }
+    }
+    
+    private var controllerState: SP621E.State {
         SP621E.State(
-            isOn: isPoweredOn,
+            isOn: isOn,
             brightness: UInt8(brightness.rounded()),
             mode: mode,
-            rgb: RGB(from: color),
+            rgb: color.rgbBytes,
             effectIndex: effect.rawValue,
             effectSpeed: UInt8(effectSpeed.rounded()),
             effectLength: UInt8(effectLength.rounded())
         )
     }
     
-    private func setBrightness() {
-        brightnessThrottle.send { [weak self] in
-            guard let self else { return }
-            let value = UInt8(self.brightness.rounded())
-            self.coordinator.setBrightness(value)
+    init() {
+        let manager = self.manager
+        Task { @BluetoothActor in
+            manager.delegate = self
         }
     }
     
-    private func setMode() {
-        switch mode {
-        case .solidColor:
-            effect = .none
-        case .dynamicEffect:
-            // TODO: When more modes are added, return to the last selected mode.
-            effect = .rainbow
+    public func connect() { manager.connect() }
+    
+    public func pair(_ devices: [Device]) { manager.pair(devices) }
+    
+    public func forgetDevices() { manager.forgetDevices() }
+    
+    public func identifyController(with id: UUID, isOn: Bool) async throws {
+        try await manager.identifyController(with: id, isOn: isOn)
+    }
+    
+    public func renameController(with id: UUID, to name: String) async throws {
+        try await manager.renameController(with: id, to: name)
+    }
+}
+
+extension Harness: SP621EManagerDelegate {
+    public func sp621eManagerDidUpdatePairingState(_ manager: SP621EManager) {
+        let state = manager.isPaired
+        Task { @MainActor in self.isPaired = state }
+    }
+    
+    public func sp621eManagerDidUpdateConnectionState(_ manager: SP621EManager) {
+        let state = manager.connectionState
+        Task { @MainActor in
+            self.connectionState = state
         }
     }
     
-    private func setColor() {
-        colorThrottle.send { [weak self] in
-            guard let self else { return }
-            let (red, green, blue) = self.color.rgbBytes
-            let brightness = UInt8(self.brightness.rounded())
-            self.coordinator.setColor(red: red, green: green, blue: blue, brightness: brightness)
+    public func sp621eManagerDidUpdateControllerState(_ manager: SP621EManager) {
+        guard let state = manager.controllerState else { return }
+        Task { @MainActor in
+            self.isApplyingRemoteState = true
+            self.brightness = Double(state.brightness)
+            self.color = state.rgb.color
+            self.mode = state.mode
+            if let effect = SP621EEffect(rawValue: state.effectIndex) { self.effect = effect }
+            self.effectSpeed = Double(state.effectSpeed)
+            self.effectLength = Double(state.effectLength)
+            self.isOn = state.isOn
+            self.isApplyingRemoteState = false
         }
     }
     
-    private func setEffect() {
-        coordinator.setEffect(effect)
+    public func sp621eManager(_ manager: SP621EManager, didDiscover device: Device) {
+        print("didDiscover device with ID: \(device.id.uuidString)")
+        Task { @MainActor in self.discoveredDevices.append(device) }
     }
     
-    private func setEffectSpeed() {
-        effectSpeedThrottle.send { [weak self] in
-            guard let self else { return }
-            let value = UInt8(self.effectSpeed.rounded())
-            self.coordinator.setEffectSpeed(value)
-        }
+    public func sp621eManager(
+        _ manager: SP621EManager,
+        didConnectController id: UUID,
+        name: String
+    ) {
+        Task { @MainActor in self.controllers[id] = name }
     }
     
-    private func setEffectLength() {
-        effectLengthThrottle.send { [weak self] in
-            guard let self else { return }
-            let value = UInt8(self.effectLength.rounded())
-            self.coordinator.setEffectLength(value)
-        }
+    public func sp621eManager(
+        _ manager: SP621EManager,
+        didRenameController id: UUID,
+        to name: String
+    ) {
+        Task { @MainActor in self.controllers[id] = name }
+    }
+    
+    public func requestedControllerState() async -> SP621E.State {
+        return await self.controllerState
     }
 }

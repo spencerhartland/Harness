@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct ControlView: View {
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
@@ -61,7 +62,7 @@ struct ControlView: View {
     
     @ViewBuilder private var harnessControls: some View {
         Section {
-            Toggle(isOn: $harness.isPoweredOn.animation()) {
+            Toggle(isOn: $harness.isOn.animation()) {
                 ControlLabel("Power", systemImage: "power", color: .green)
             }
         }
@@ -81,10 +82,10 @@ struct ControlView: View {
             
             Section("Appearance") {
                 Picker("Mode", selection: $harness.mode) {
-                    Text(SP621E.Mode.solidColor.rawValue)
-                        .tag(SP621E.Mode.solidColor)
-                    Text(SP621E.Mode.dynamicEffect.rawValue)
-                        .tag(SP621E.Mode.dynamicEffect)
+                    Text(SP621EMode.solidColor.rawValue)
+                        .tag(SP621EMode.solidColor)
+                    Text(SP621EMode.dynamicEffect.rawValue)
+                        .tag(SP621EMode.dynamicEffect)
                 }
                 .pickerStyle(.segmented)
             }
@@ -99,8 +100,8 @@ struct ControlView: View {
             }
             .listSectionSpacing(16)
         }
-        .disabled(!harness.isPoweredOn)
-        .dimmed(!harness.isPoweredOn)
+        .disabled(!harness.isOn)
+        .dimmed(!harness.isOn)
     }
     
     private var colorControls: some View {
@@ -115,7 +116,7 @@ struct ControlView: View {
     
     @ViewBuilder private var effectControls: some View {
         Picker(selection: $harness.effect) {
-            Text("Rainbow").tag(SP621E.Effect.rainbow)
+            Text("Rainbow").tag(SP621EEffect.rainbow)
         } label: {
             ControlLabel(
                 "Effect",
@@ -216,10 +217,7 @@ struct ControlView: View {
                 .padding(.trailing, 8)
             }
             .padding(.horizontal, 8)
-            .background {
-                Capsule()
-                    .fill(Color(uiColor: .systemFill))
-            }
+            .glassEffect()
         }
     }
 }
