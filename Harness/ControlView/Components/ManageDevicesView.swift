@@ -10,7 +10,7 @@ import SwiftSP621E
 
 struct ManageDevicesView: View {
     
-    @Binding var harness: Harness
+    @Binding var harness: SwiftSP621E
     
     @State private var shouldShowForgetConfirmation: Bool = false
     
@@ -49,7 +49,7 @@ struct ManageDevicesView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = Harness()
+    @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
         ManageDevicesView(harness: $harness)

@@ -6,19 +6,20 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 struct EditControllerNameView: View {
     @Environment(\.dismiss) private var dismiss
     
     private static let characterLimit: Int = 10
     
-    @Binding var harness: Harness
+    @Binding var harness: SwiftSP621E
     
     private let controllerID: UUID
     @State private var controllerName: String
     @State private var exceededCharacterLimit: Bool = false
     
-    init(id: UUID, name: String, harness: Binding<Harness>) {
+    init(id: UUID, name: String, harness: Binding<SwiftSP621E>) {
         self.controllerID = id
         self.controllerName = name
         self._harness = harness
@@ -78,7 +79,7 @@ struct EditControllerNameView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = Harness()
+    @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
         EditControllerNameView(id: .init(), name: "SP621E", harness: $harness)

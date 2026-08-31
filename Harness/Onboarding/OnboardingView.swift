@@ -12,7 +12,7 @@ struct OnboardingView: View {
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
     
-    @Binding var harness: Harness
+    @Binding var harness: SwiftSP621E
     
     var body: some View {
         VStack {
@@ -62,7 +62,7 @@ struct OnboardingView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = Harness()
+    @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
         OnboardingView(harness: $harness)

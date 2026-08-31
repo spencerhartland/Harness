@@ -11,7 +11,7 @@ import SwiftSP621E
 struct ControlView: View {
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
     
-    @Binding var harness: Harness
+    @Binding var harness: SwiftSP621E
     
     private var posessiveUsername: String {
         guard let last = username.last else { return username }
@@ -223,7 +223,7 @@ struct ControlView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = Harness()
+    @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
         ControlView(harness: $harness)

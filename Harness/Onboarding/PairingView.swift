@@ -12,7 +12,7 @@ struct PairingView: View {
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.onboardingRequired) private var onboardingRequired: Bool = true
     
-    @Binding var harness: Harness
+    @Binding var harness: SwiftSP621E
     
     @State private var selectedDevices: [Device] = []
     
@@ -66,7 +66,7 @@ struct PairingView: View {
                     }
                 } else {
                     Button {
-                        harness.pair(selectedDevices)
+                        harness.pairDevices(selectedDevices)
                     } label: {
                         Text("Pair")
                     }
@@ -127,7 +127,7 @@ struct PairingView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = Harness()
+    @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
         PairingView(harness: $harness)
