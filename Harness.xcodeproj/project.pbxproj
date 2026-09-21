@@ -257,6 +257,7 @@
 				DEVELOPMENT_TEAM = 4M48D4QJHN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Harness;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Harness uses bluetooth to communicate with and control your harness.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -296,6 +297,7 @@
 				DEVELOPMENT_TEAM = 4M48D4QJHN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Harness;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Harness uses bluetooth to communicate with and control your harness.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

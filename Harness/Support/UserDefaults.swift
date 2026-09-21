@@ -11,5 +11,6 @@ extension UserDefaults {
     public struct Keys {
         public static let onboardingRequired = "onboardingRequired"
         public static let username = "username"
+        public static let favoriteEffects = "favoriteEffects"
     }
 }

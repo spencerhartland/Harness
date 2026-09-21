@@ -9,12 +9,11 @@ import SwiftUI
 import SwiftSP621E
 
 struct PairingView: View {
+    @Environment(SwiftSP621E.self) private var harness
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.onboardingRequired) private var onboardingRequired: Bool = true
     
-    @Binding var harness: SwiftSP621E
-    
-    @State private var selectedDevices: [Device] = []
+    @State private var selectedDevices: [DiscoveredSP621E] = []
     
     var body: some View {
         VStack {
@@ -27,7 +26,7 @@ struct PairingView: View {
                 
                 if harness.isPaired {
                     connectedInfo
-                } else if harness.discoveredDevices.count > 2 {
+                } else if harness.discoveredControllers.count > 2 {
                     selectionInstructions
                 } else {
                     connectionInstructions
@@ -35,7 +34,7 @@ struct PairingView: View {
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
             
-            List(harness.discoveredDevices) { device in
+            List(harness.discoveredControllers) { device in
                 let selected = selectedDevices.contains(device)
                 
                 Button {
@@ -66,7 +65,7 @@ struct PairingView: View {
                     }
                 } else {
                     Button {
-                        harness.pairDevices(selectedDevices)
+                        harness.pairControllers(selectedDevices)
                     } label: {
                         Text("Pair")
                     }
@@ -80,7 +79,7 @@ struct PairingView: View {
         .padding(32)
         .onAppear {
             harness.connect()
-            selectedDevices = [Device](harness.discoveredDevices.prefix(2))
+            selectedDevices = [DiscoveredSP621E](harness.discoveredControllers.prefix(2))
         }
     }
     
@@ -127,9 +126,7 @@ struct PairingView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = SwiftSP621E()
-    
     NavigationStack {
-        PairingView(harness: $harness)
+        PairingView()
     }
 }

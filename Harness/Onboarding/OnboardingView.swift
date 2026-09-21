@@ -12,8 +12,6 @@ struct OnboardingView: View {
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
     
-    @Binding var harness: SwiftSP621E
-    
     var body: some View {
         VStack {
             Image("HarnessAppIcon")
@@ -47,7 +45,7 @@ struct OnboardingView: View {
             Spacer()
             
             NavigationLink {
-                PairingView(harness: $harness)
+                PairingView()
             } label: {
                 Text("Continue")
                     .font(.body.bold())
@@ -62,9 +60,7 @@ struct OnboardingView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = SwiftSP621E()
-    
     NavigationStack {
-        OnboardingView(harness: $harness)
+        OnboardingView()
     }
 }

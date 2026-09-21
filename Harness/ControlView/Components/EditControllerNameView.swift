@@ -9,20 +9,18 @@ import SwiftUI
 import SwiftSP621E
 
 struct EditControllerNameView: View {
+    @Environment(SwiftSP621E.self) private var harness
     @Environment(\.dismiss) private var dismiss
     
     private static let characterLimit: Int = 10
-    
-    @Binding var harness: SwiftSP621E
     
     private let controllerID: UUID
     @State private var controllerName: String
     @State private var exceededCharacterLimit: Bool = false
     
-    init(id: UUID, name: String, harness: Binding<SwiftSP621E>) {
+    init(id: UUID, name: String) {
         self.controllerID = id
         self.controllerName = name
-        self._harness = harness
     }
     
     var body: some View {
@@ -66,22 +64,20 @@ struct EditControllerNameView: View {
     
     private var identifyControllerButton: some View {
         Button("Identify", systemImage: "light.beacon.max.fill") {
-            Task { try? await harness.identifyController(with: controllerID, isOn: harness.isOn) }
+            harness.identifyController(with: controllerID)
         }
     }
     
     private var confirmationButton: some View {
         Button(role: .confirm) {
-            Task { try? await harness.renameController(with: controllerID, to: controllerName) }
+            harness.changeControllerName(id: controllerID, name: controllerName)
             dismiss()
         }
     }
 }
 
 #Preview {
-    @Previewable @State var harness = SwiftSP621E()
-    
     NavigationStack {
-        EditControllerNameView(id: .init(), name: "SP621E", harness: $harness)
+        EditControllerNameView(id: .init(), name: "SP621E")
     }
 }

@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import SwiftSP621E
 
 @main
 struct HarnessApp: App {
+    @State private var harness = SwiftSP621E()
+    
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(harness)
         }
     }
 }

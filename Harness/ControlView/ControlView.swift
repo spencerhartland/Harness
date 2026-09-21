@@ -9,9 +9,11 @@ import SwiftUI
 import SwiftSP621E
 
 struct ControlView: View {
+    @Environment(SwiftSP621E.self) private var harness
+    @Environment(EffectsStore.self) private var effectsStore
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
     
-    @Binding var harness: SwiftSP621E
+    private static let maxPresetCount: Int = 3
     
     private var posessiveUsername: String {
         guard let last = username.last else { return username }
@@ -24,8 +26,6 @@ struct ControlView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(.leading, 0)
             harnessControls
-                .disabled(!harness.isConnected)
-                .dimmed(!harness.isConnected)
         }
         .onAppear { harness.connect() }
         .navigationTitle(username.isEmpty ? "My Harness" : "\(posessiveUsername) Harness")
@@ -39,7 +39,7 @@ struct ControlView: View {
                     }
                     
                     NavigationLink {
-                        ManageDevicesView(harness: $harness)
+                        ManageDevicesView()
                     } label: {
                         Label("Manage Harness", systemImage: "gearshape.fill")
                     }
@@ -61,11 +61,15 @@ struct ControlView: View {
     }
     
     @ViewBuilder private var harnessControls: some View {
+        @Bindable var harness = harness
+        
         Section {
-            Toggle(isOn: $harness.isOn.animation()) {
+            Toggle(isOn: $harness.powerOn.animation()) {
                 ControlLabel("Power", systemImage: "power", color: .green)
             }
         }
+        .disabled(!harness.isConnected)
+        .dimmed(!harness.isConnected)
         
         Group {
             Section("Brightness") {
@@ -90,104 +94,74 @@ struct ControlView: View {
                 .pickerStyle(.segmented)
             }
             
-            Section {
-                switch harness.mode {
-                case .solidColor:
-                    colorControls
-                case .dynamicEffect:
-                    effectControls
-                }
+            switch harness.mode {
+            case .solidColor:
+                colorControls
+            case .dynamicEffect:
+                effectControls
+            case .audio:
+                Text("Hello")
             }
-            .listSectionSpacing(16)
         }
-        .disabled(!harness.isOn)
-        .dimmed(!harness.isOn)
+//        .disabled(!harness.powerOn)
+//        .dimmed(!harness.powerOn)
     }
     
-    private var colorControls: some View {
-        ColorPicker(selection: $harness.color, supportsOpacity: false) {
-            ControlLabel(
-                "Color",
-                systemImage: "paintpalette.fill",
-                color: .orange
-            )
+    @ViewBuilder private var colorControls: some View {
+        @Bindable var harness = harness
+        
+        Section {
+            ColorPicker(selection: $harness.color, supportsOpacity: false) {
+                ControlLabel(
+                    "Color",
+                    systemImage: "paintpalette.fill",
+                    color: .orange
+                )
+            }
         }
+        .listSectionSpacing(16)
     }
     
     @ViewBuilder private var effectControls: some View {
-        Picker(selection: $harness.effect) {
-            Text("Rainbow").tag(SP621EEffect.rainbow)
-        } label: {
-            ControlLabel(
-                "Effect",
-                systemImage: "sparkles",
-                color: .purple
-            )
-        }
-        .alignmentGuide(.listRowSeparatorLeading) { dimensions in
-            dimensions[.leading]
-        }
+        @Bindable var harness = harness
         
-        Slider(value: $harness.effectSpeed, in: 1...10) {
-            Text("Effect Speed")
-        } minimumValueLabel: {
-            SliderValueLabel(systemImage: "tortoise.fill")
-        } maximumValueLabel: {
-            SliderValueLabel(systemImage: "hare.fill")
-        }
-        
-        Slider(value: $harness.effectLength, in: 1...150) {
-            Text("Effect Length")
-        } minimumValueLabel: {
-            SliderValueLabel(systemImage: "minus.circle.fill")
-        } maximumValueLabel: {
-            SliderValueLabel(systemImage: "plus.circle.fill")
-        }
-    }
-    
-    private struct SliderValueLabel: View {
-        let systemImage: String
-        let size: CGFloat
-        
-        init(systemImage: String, size: CGFloat = 24) {
-            self.systemImage = systemImage
-            self.size = size
-        }
-        
-        var body: some View {
-            Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
-                .frame(width: size, height: size)
-        }
-    }
-    
-    private struct ControlLabel: View {
-        private let title: String
-        private let systemImage: String
-        private let color: Color
-        
-        init(_ title: String, systemImage: String, color: Color) {
-            self.title = title
-            self.systemImage = systemImage
-            self.color = color
-        }
-        
-        var body: some View {
-            HStack(spacing: 16) {
-                Image(systemName: systemImage)
-                    .padding(4)
-                    .background {
-                        color
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .aspectRatio(1.0, contentMode: .fill)
-                    }
-                    .foregroundStyle(Color.white)
-                    .bold()
-                Text(title)
+        Group {
+            Section { EffectPresetPicker() }
+            
+            let maxPresets = effectsStore.presets.count == Self.maxPresetCount
+            Section {
+                EffectPicker(
+                    effect: $harness.effect, 
+                    speed: $harness.effectSpeed, 
+                    length: $harness.effectLength
+                )
+                
+                Button("Save as Preset") {
+                    savePreset()
+                }
+                .buttonStyle(.bordered)
+                .buttonSizing(.flexible)
+                .controlSize(.large)
+                .foregroundStyle(.primary)
+                .disabled(maxPresets)
+                .opacity(maxPresets ? 0.5 : 1.0)
             }
         }
+        .listSectionSpacing(16)
     }
-
+    
+    private func savePreset() {
+        let presetName = "Preset \(effectsStore.presets.count + 1)"
+        let preset = EffectPreset(
+            presetName,
+            color: .yellow,
+            effect: harness.effect,
+            effectSpeed: harness.effectSpeed,
+            effectLength: harness.effectLength
+        )
+        effectsStore.savePreset(preset)
+    }
+    
     private struct StatusItem: View {
         private let title: String
         private let statusDescription: String
@@ -223,9 +197,12 @@ struct ControlView: View {
 }
 
 #Preview {
+    @Previewable @State var effectsStore = EffectsStore()
     @Previewable @State var harness = SwiftSP621E()
     
     NavigationStack {
-        ControlView(harness: $harness)
+        ControlView()
     }
+    .environment(harness)
+    .environment(effectsStore)
 }

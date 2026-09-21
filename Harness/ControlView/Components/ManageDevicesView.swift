@@ -9,8 +9,7 @@ import SwiftUI
 import SwiftSP621E
 
 struct ManageDevicesView: View {
-    
-    @Binding var harness: SwiftSP621E
+    @Environment(SwiftSP621E.self) private var harness
     
     @State private var shouldShowForgetConfirmation: Bool = false
     
@@ -21,7 +20,7 @@ struct ManageDevicesView: View {
                 
                 ForEach(controllers, id: \.key) { (id, name) in
                     NavigationLink(name) {
-                        EditControllerNameView(id: id, name: name, harness: $harness)
+                        EditControllerNameView(id: id, name: name)
                     }
                 }
             } header: {
@@ -41,7 +40,7 @@ struct ManageDevicesView: View {
         }
         .foregroundStyle(.red)
         .confirmationDialog("Forget", isPresented: $shouldShowForgetConfirmation) {
-            Button("Forget", role: .destructive) { harness.forgetDevices() }
+            Button("Forget", role: .destructive) { harness.forgetControllers() }
         } message: {
             Text("Forget this harness?")
         }
@@ -49,9 +48,7 @@ struct ManageDevicesView: View {
 }
 
 #Preview {
-    @Previewable @State var harness = SwiftSP621E()
-    
     NavigationStack {
-        ManageDevicesView(harness: $harness)
+        ManageDevicesView()
     }
 }
