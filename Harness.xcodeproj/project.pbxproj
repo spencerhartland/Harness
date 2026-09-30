@@ -14,9 +14,22 @@
 		00EC1BFB30045F5D002AC3F1 /* Harness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Harness.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		004385DC30673A1F008787A3 /* Exceptions for "Harness" folder in "Harness" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 00EC1BFA30045F5D002AC3F1 /* Harness */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00EC1BFD30045F5D002AC3F1 /* Harness */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				004385DC30673A1F008787A3 /* Exceptions for "Harness" folder in "Harness" target */,
+			);
 			path = Harness;
 			sourceTree = "<group>";
 		};
@@ -257,9 +270,11 @@
 				DEVELOPMENT_TEAM = 4M48D4QJHN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Harness/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Harness;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Harness uses bluetooth to communicate with and control your harness.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Harness uses your microphone to sync your harness' LEDs to music.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -297,9 +312,11 @@
 				DEVELOPMENT_TEAM = 4M48D4QJHN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Harness/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Harness;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Harness uses bluetooth to communicate with and control your harness.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Harness uses your microphone to sync your harness' LEDs to music.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

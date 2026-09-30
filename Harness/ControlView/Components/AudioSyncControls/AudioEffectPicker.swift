@@ -1,24 +1,31 @@
 //
-//  EffectPicker.swift
+//  AudioEffectPicker.swift
 //  Harness
 //
-//  Created by Spencer Hartland on 9/18/26.
+//  Created by Spencer Hartland on 9/26/26.
 //
 
 import SwiftUI
 import SwiftSP621E
 
-struct EffectPicker: View {
+struct AudioEffectPicker: View {
     @Environment(EffectsStore.self) private var effectsStore
     
     @Binding var effect: SP621EEffect
-    @Binding var effectSpeed: Double
-    @Binding var effectLength: Double
+    @Binding var color: Color
+    @Binding var sensitivity: Double
+    @Binding var length: Double
     
-    init(effect: Binding<SP621EEffect>, speed: Binding<Double>, length: Binding<Double>) {
+    init(
+        effect: Binding<SP621EEffect>,
+        color: Binding<Color>,
+        sensitivity: Binding<Double>,
+        length: Binding<Double>
+    ) {
         self._effect = effect
-        self._effectSpeed = speed
-        self._effectLength = length
+        self._color = color
+        self._sensitivity = sensitivity
+        self._length = length
     }
     
     var body: some View {
@@ -30,13 +37,15 @@ struct EffectPicker: View {
                     ControlLabel(
                         "Effect",
                         systemImage: "star.fill",
-                        color: .purple
+                        color: .yellow
                     )
                     
                     Spacer()
                     
                     Text(effect.name)
+                        .lineLimit(1)
                         .foregroundStyle(.secondary)
+                        .truncationMode(.tail)
                 }
             }
             
@@ -46,9 +55,9 @@ struct EffectPicker: View {
     
     @ViewBuilder private var effectPicker: some View {
         List {
-            let favoriteEffects = [SP621EEffect](effectsStore.favoriteEffects)
+            let favorites = [SP621EEffect](effectsStore.favoriteAudioEffects)
             Section {
-                if favoriteEffects.isEmpty {
+                if favorites.isEmpty {
                     VStack {
                         Image(systemName: "star.slash.fill")
                         Text("No favorites")
@@ -58,7 +67,7 @@ struct EffectPicker: View {
                     .multilineTextAlignment(.center)
                 } else {
                     Picker("Favorite Effects", selection: $effect) {
-                        ForEach(favoriteEffects) { effect in
+                        ForEach(favorites) { effect in
                             Text(effect.name).tag(effect)
                         }
                     }
@@ -68,15 +77,15 @@ struct EffectPicker: View {
                 Text("Favorite Effects")
             }
             
-            Picker("All Effects", selection: $effect) {
-                ForEach(SP621EEffect.allCases) { effect in
-                    let isFavorite = effectsStore.favoriteEffects.contains(effect)
+            Picker("All Audio Effects", selection: $effect) {
+                ForEach(SP621EEffect.audioEffects) { effect in
+                    let isFavorite = effectsStore.favoriteAudioEffects.contains(effect)
                     HStack {
                         Button {
                             if isFavorite {
-                                effectsStore.unfavoriteEffect(effect)
+                                effectsStore.unfavoriteAudioEffect(effect)
                             } else {
-                                effectsStore.favoriteEffect(effect)
+                                effectsStore.favoriteAudioEffect(effect)
                             }
                         } label: {
                             Image(systemName: isFavorite ? "star.fill" : "star")
@@ -94,10 +103,26 @@ struct EffectPicker: View {
     
     @ViewBuilder private var effectConfiguration: some View {
         VStack(alignment: .leading, spacing: 16) {
-            LabeledSlider("Speed", value: $effectSpeed, in: SP621E.effectSpeedRange)
-            LabeledSlider("Length", value: $effectLength, in: SP621E.effectLengthRange)
+            LabeledSlider(
+                "Sensitivity",
+                value: $sensitivity,
+                in: SP621E.audioSensitivityRange
+            )
+            LabeledSlider(
+                "Length",
+                value: $length,
+                in: SP621E.effectLengthRange
+            )
         }
         .padding([.horizontal, .bottom], 8)
+        
+        ColorPicker(selection: $color, supportsOpacity: false) {
+            ControlLabel(
+                "Color",
+                systemImage: "paintpalette.fill",
+                color: .orange
+            )
+        }
     }
 }
 
@@ -108,16 +133,18 @@ struct EffectPicker: View {
     @Previewable @State var previewablePreset = EffectPreset(
         "Preset 1",
         color: .pink,
-        effect: .rainbow,
+        effect: .fullColorRhythmSpectrum,
         effectSpeed: 2.0,
-        effectLength: 50.0
+        effectLength: 50.0,
+        audioSensitivity: 3.0
     )
     
     NavigationStack {
         List {
-            EffectPicker(
+            AudioEffectPicker(
                 effect: $previewablePreset.effect,
-                speed: $previewablePreset.effectSpeed,
+                color: $previewablePreset.color,
+                sensitivity: $previewablePreset.effectSpeed,
                 length: $previewablePreset.effectLength
             )
         }

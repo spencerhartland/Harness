@@ -58,7 +58,8 @@ struct EditEffectPresetView: View {
         color: .pink,
         effect: .rainbow,
         effectSpeed: 2.0,
-        effectLength: 50.0
+        effectLength: 50.0,
+        audioSensitivity: 3.0
     )
     
     NavigationStack {

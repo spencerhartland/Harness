@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Charts
 import SwiftSP621E
 
 struct ControlView: View {
@@ -51,13 +52,26 @@ struct ControlView: View {
     @ViewBuilder private var harnessStatus: some View {
         let connectionStatusIcon = harness.connectionState == .disconnected ? "antenna.radiowaves.left.and.right.slash" : "antenna.radiowaves.left.and.right"
         
-        StatusItem(
-            "Bluetooth",
-            statusDescription: harness.connectionState.rawValue,
-            systemImage: connectionStatusIcon,
-            color: .blue
-        )
-        .symbolEffect(.variableColor, isActive: harness.connectionState == .connecting)
+        let microphoneActive = (harness.mode == .audioSync)
+        let microphoneStatusIcon = microphoneActive ? "microphone.fill" : "microphone.slash.fill"
+        
+        HStack {
+            StatusItem(
+                "Bluetooth",
+                statusDescription: harness.connectionState.rawValue,
+                systemImage: connectionStatusIcon,
+                color: .blue
+            )
+            .symbolEffect(.variableColor, isActive: harness.connectionState == .connecting)
+            
+            StatusItem(
+                "Microphone",
+                statusDescription: microphoneActive ? "Enabled" : "Disabled",
+                systemImage: microphoneStatusIcon,
+                color: microphoneActive ? .orange : .secondary
+            )
+            .contentTransition(.symbolEffect(.replace))
+        }
     }
     
     @ViewBuilder private var harnessControls: some View {
@@ -85,11 +99,13 @@ struct ControlView: View {
             }
             
             Section("Appearance") {
-                Picker("Mode", selection: $harness.mode) {
+                Picker("Mode", selection: $harness.mode.animation()) {
                     Text(SP621EMode.solidColor.rawValue)
                         .tag(SP621EMode.solidColor)
                     Text(SP621EMode.dynamicEffect.rawValue)
                         .tag(SP621EMode.dynamicEffect)
+                    Text(SP621EMode.audioSync.rawValue)
+                        .tag(SP621EMode.audioSync)
                 }
                 .pickerStyle(.segmented)
             }
@@ -99,12 +115,12 @@ struct ControlView: View {
                 colorControls
             case .dynamicEffect:
                 effectControls
-            case .audio:
-                Text("Hello")
+            case .audioSync:
+                audioSyncControls
             }
         }
-//        .disabled(!harness.powerOn)
-//        .dimmed(!harness.powerOn)
+        .disabled(!harness.powerOn || !harness.isConnected)
+        .dimmed(!harness.powerOn || !harness.isConnected)
     }
     
     @ViewBuilder private var colorControls: some View {
@@ -150,6 +166,33 @@ struct ControlView: View {
         .listSectionSpacing(16)
     }
     
+    @ViewBuilder private var audioSyncControls: some View {
+        @Bindable var harness = harness
+        
+        Group {
+            Section {
+                AudioVisualizerView(for: harness.levels)
+            } footer: {
+                Text(
+                """
+                Harness uses audio from your iPhone's microphone to synchronize your harness' \
+                LEDs to music.
+                """
+                )
+            }
+            
+            Section {
+                AudioEffectPicker(
+                    effect: $harness.effect,
+                    color: $harness.color,
+                    sensitivity: $harness.audioSensitivity,
+                    length: $harness.effectLength
+                )
+            }
+        }
+        .listSectionSpacing(16)
+    }
+    
     private func savePreset() {
         let presetName = "Preset \(effectsStore.presets.count + 1)"
         let preset = EffectPreset(
@@ -157,7 +200,8 @@ struct ControlView: View {
             color: .yellow,
             effect: harness.effect,
             effectSpeed: harness.effectSpeed,
-            effectLength: harness.effectLength
+            effectLength: harness.effectLength,
+            audioSensitivity: harness.audioSensitivity
         )
         effectsStore.savePreset(preset)
     }
