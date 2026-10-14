@@ -91,33 +91,30 @@ struct PairingView: View {
     }
     
     private var connectionInstructions: some View {
-        VStack(alignment: .leading) {
-            Text("Pair your harness")
-                .font(.title3.bold())
-            Text("Make sure both of the straps are powered on and keep your harness near your iPhone.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-        }
+        InfoView(
+            "Pair your harness",
+            caption:
+                """
+                Make sure both of the straps are powered on and keep your harness near your iPhone.
+                """,
+        )
     }
     
     private var selectionInstructions: some View {
-        VStack(alignment: .leading) {
-            Text("Pair your harness")
-                .font(.title3.bold())
-            Text("Multiple harnesses were found. Select your harness' straps from the list below.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-        }
+        InfoView(
+            "Pair your harness",
+            caption:
+                """
+                Multiple harnesses were found. Select your harness' straps from the list below.
+                """,
+        )
     }
     
     private var connectedInfo: some View {
-        VStack(alignment: .leading) {
-            Text("Connected")
-                .font(.title3.bold())
-            Text("Your harness is now paired.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-        }
+        InfoView(
+            "Connected",
+            caption: "Your harness is now paired.",
+        )
     }
     
     private var progressIndicator: some View {
@@ -135,6 +132,26 @@ struct PairingView: View {
             .font(.title3.bold())
             .foregroundColor(.green)
             .symbolEffect(.drawOn, isActive: !harness.isPaired)
+    }
+    
+    private struct InfoView: View {
+        let title: String
+        let caption: String
+        
+        init(_ title: String, caption: String){
+            self.title = title
+            self.caption = caption
+        }
+        
+        var body: some View {
+            VStack(alignment: .leading) {
+                Text(title)
+                    .font(.title3.bold())
+                Text(caption)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
