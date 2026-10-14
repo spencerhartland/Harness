@@ -9,52 +9,71 @@ import SwiftUI
 import SwiftSP621E
 
 struct EffectPresetPicker: View {
-    @Environment(SwiftSP621E.self) private var harness
-    @Environment(EffectsStore.self) private var effectsStore
+    let presets: [EffectPreset]
+    let selectedPreset: EffectPreset?
+    let onSelect: (EffectPreset) -> Void
+    let onDelete: (EffectPreset) -> Void
+    
+    init(
+        _ presets: [EffectPreset],
+        selected: EffectPreset? = nil,
+        onSelect: @escaping (EffectPreset) -> Void,
+        onDelete: @escaping (EffectPreset) -> Void,
+    ) {
+        self.presets = presets
+        self.selectedPreset = selected
+        self.onSelect = onSelect
+        self.onDelete = onDelete
+    }
     
     var body: some View {
         Group {
-            if effectsStore.presets.isEmpty {
+            if presets.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "star.slash.fill")
                         .imageScale(.large)
-                    Text("No Effect Presets")
+                    Text("No Presets")
                 }
                 .padding(8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HStack {
-                    ForEach(effectsStore.presets) { preset in
-                        Menu {
-                            Group {
-                                NavigationLink {
-                                    EditEffectPresetView(preset)
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
+                    ForEach(presets) { preset in
+                        VStack {
+                            Menu {
+                                Group {
+                                    NavigationLink {
+                                        EditEffectPresetView(preset)
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    
+                                    Button(role: .destructive) {
+                                        onDelete(preset)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
-                                
-                                Button(role: .destructive) {
-                                    effectsStore.deletePreset(preset)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                                .tint(nil)
+                            } label: {
+                                VStack {
+                                    Image(systemName: "star.fill")
+                                        .imageScale(.large)
+                                        .padding(8)
+                                    Text(preset.name)
+                                        .font(.caption.bold())
                                 }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            } primaryAction: {
+                                withAnimation { onSelect(preset) }
                             }
-                            .tint(nil)
-                        } label: {
-                            VStack {
-                                Image(systemName: "star.fill")
-                                    .imageScale(.large)
-                                    .padding(8)
-                                Text(preset.name)
-                                    .font(.caption.bold())
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } primaryAction: {
-                            setEffectPreset(preset)
+                            .buttonBorderShape(.roundedRectangle)
+                            .buttonStyle(.glassProminent)
+                            .tint(preset.color)
+                            
+                            activePresetIndicator
+                                .opacity(preset == selectedPreset ? 1 : 0)
                         }
-                        .buttonBorderShape(.roundedRectangle)
-                        .buttonStyle(.glassProminent)
-                        .tint(preset.color)
                     }
                 }
                 .listRowBackground(EmptyView())
@@ -63,11 +82,11 @@ struct EffectPresetPicker: View {
         .listRowInsets(.vertical, 8)
     }
     
-    private func setEffectPreset(_ preset: EffectPreset) {
-        harness.effect = preset.effect
-        harness.effectSpeed = preset.effectSpeed
-        harness.effectLength = preset.effectLength
-        harness.powerOn = true
+    private var activePresetIndicator: some View {
+        Circle()
+            .foregroundStyle(.secondary)
+            .aspectRatio(1.0, contentMode: .fit)
+            .frame(width: 6)
     }
 }
 
@@ -77,7 +96,11 @@ struct EffectPresetPicker: View {
     
     NavigationStack {
         List {
-            EffectPresetPicker()
+            EffectPresetPicker(effectsStore.standardPresets, selected: harness.preset) { preset in
+                harness.preset = preset
+            } onDelete: { preset in
+                effectsStore.deletePreset(preset)
+            }
         }
     }
     .environment(harness)

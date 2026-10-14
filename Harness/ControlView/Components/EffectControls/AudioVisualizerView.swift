@@ -20,11 +20,12 @@ struct AudioVisualizerView: View {
             stops: [
                 .init(color: .red, location: 0),
                 .init(color: .orange, location: 0.1),
-                .init(color: .green, location: 0.35)
+                .init(color: .green, location: 0.3)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
+        .listRowBackground(background)
         .aspectRatio(3, contentMode: .fit)
         .mask {
             Chart(levels.indices, id: \.self) { index in
@@ -74,12 +75,18 @@ struct AudioVisualizerView: View {
             .animation(.easeOut, value: levels)
         }
     }
+    
+    private var background: some View {
+        ConcentricRectangle()
+            .fill(Color(uiColor: .secondarySystemGroupedBackground).gradient)
+            .glassEffect(.regular, in: ConcentricRectangle())
+    }
 }
 
 #Preview {
     @Previewable @State var previewLevels: [Float] = [
-        127.41503, 127.41503, 255, 107.74201, 101.88021, 80.9071, 180.66491, 65,
-        245.297844, 95.46173, 39.058865, 18.810339, 18.58319, 11.700314, 0.0, 1.0
+        90.41503, 127.41503, 255, 107.74201, 101.88021, 80.9071, 180.66491, 65,
+        255.0, 95.46173, 39.058865, 18.810339, 18.58319, 11.700314, 0.0, 1.0
     ]
     
     List {

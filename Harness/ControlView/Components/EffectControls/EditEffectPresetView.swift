@@ -29,11 +29,7 @@ struct EditEffectPresetView: View {
             }
             
             Section("Effect Settings") {
-                EffectPicker(
-                    effect: $preset.effect,
-                    speed: $preset.effectSpeed,
-                    length: $preset.effectLength
-                )
+                EffectPicker(type: preset.effect.type)
             }
         }
         .navigationTitle(preset.name)
@@ -59,6 +55,7 @@ struct EditEffectPresetView: View {
         effect: .rainbow,
         effectSpeed: 2.0,
         effectLength: 50.0,
+        effectColor: .red,
         audioSensitivity: 3.0
     )
     
