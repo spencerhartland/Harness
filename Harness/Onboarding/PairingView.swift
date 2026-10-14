@@ -13,49 +13,58 @@ struct PairingView: View {
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.onboardingRequired) private var onboardingRequired: Bool = true
     
-    @State private var selectedDevices: [DiscoveredSP621E] = []
+    @State private var selectedControllers: [DiscoveredSP621E] = []
     
     var body: some View {
-        VStack {
-            VStack(alignment: .leading) {
-                ZStack {
-                    progressIndicator
-                    completionIndicator
-                }
-                .padding(.bottom)
-                
-                if harness.isPaired {
-                    connectedInfo
-                } else if harness.discoveredControllers.count > 2 {
-                    selectionInstructions
-                } else {
-                    connectionInstructions
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            
-            List(harness.discoveredControllers) { device in
-                let selected = selectedDevices.contains(device)
-                
-                Button {
-                    if selected {
-                        selectedDevices.removeAll { $0 == device }
+        List {
+            Section {
+                VStack(alignment: .leading) {
+                    ZStack {
+                        progressIndicator
+                        completionIndicator
+                    }
+                    .padding(.bottom)
+                    
+                    if harness.isPaired {
+                        connectedInfo
+                    } else if harness.discoveredControllers.count > 2 {
+                        selectionInstructions
                     } else {
-                        selectedDevices.append(device)
-                    }
-                } label: {
-                    HStack {
-                        Text(device.name)
-                        Spacer()
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(.blue)
-                            .symbolEffect(.drawOn, isActive: !selected)
+                        connectionInstructions
                     }
                 }
-                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .scrollContentBackground(.hidden)
             
+            Section {
+                ForEach(selectedControllers) { device in
+                    Button(device.name) {
+                        selectedControllers.removeAll { $0 == device }
+                    }
+                    .foregroundStyle(.primary)
+                }
+            } header: {
+                HStack {
+                    Text("Selected Controllers")
+                    Spacer()
+                    Text("\(selectedControllers.count)/2")
+                }
+            }
+            
+            Section("Discovered Controllers") {
+                let discoveredControllers = harness.discoveredControllers.filter {
+                    !selectedControllers.contains($0)
+                }
+                
+                ForEach(discoveredControllers) { controller in
+                    Button(controller.name) {
+                        selectedControllers.append(controller)
+                    }
+                    .foregroundStyle(.primary)
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
             Group {
                 if harness.isPaired {
                     Button {
@@ -65,7 +74,7 @@ struct PairingView: View {
                     }
                 } else {
                     Button {
-                        harness.pairControllers(selectedDevices)
+                        harness.pairControllers(selectedControllers)
                     } label: {
                         Text("Pair")
                     }
@@ -75,36 +84,40 @@ struct PairingView: View {
             .buttonSizing(.flexible)
             .controlSize(.extraLarge)
             .font(.body.bold())
+            .padding(.horizontal, 32)
+            .disabled(selectedControllers.count < 2)
         }
-        .padding(32)
-        .onAppear {
-            harness.connect()
-            selectedDevices = [DiscoveredSP621E](harness.discoveredControllers.prefix(2))
+        .onAppear { harness.connect() }
+    }
+    
+    private var connectionInstructions: some View {
+        VStack(alignment: .leading) {
+            Text("Pair your harness")
+                .font(.title3.bold())
+            Text("Make sure both of the straps are powered on and keep your harness near your iPhone.")
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
     }
     
-    @ViewBuilder private var connectionInstructions: some View {
-        Text("Pair your harness")
-            .font(.title3.bold())
-        Text("Make sure both of the straps are powered on and keep your harness near your iPhone.")
-            .font(.body)
-            .foregroundStyle(.secondary)
+    private var selectionInstructions: some View {
+        VStack(alignment: .leading) {
+            Text("Pair your harness")
+                .font(.title3.bold())
+            Text("Multiple harnesses were found. Select your harness' straps from the list below.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
     }
     
-    @ViewBuilder private var selectionInstructions: some View {
-        Text("Pair your harness")
-            .font(.title3.bold())
-        Text("Multiple harnesses were found. Select your harness' straps from the list below.")
-            .font(.body)
-            .foregroundStyle(.secondary)
-    }
-    
-    @ViewBuilder private var connectedInfo: some View {
-        Text("Connected")
-            .font(.title3.bold())
-        Text("Your harness is now paired.")
-            .font(.body)
-            .foregroundStyle(.secondary)
+    private var connectedInfo: some View {
+        VStack(alignment: .leading) {
+            Text("Connected")
+                .font(.title3.bold())
+            Text("Your harness is now paired.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
     }
     
     private var progressIndicator: some View {
@@ -126,7 +139,10 @@ struct PairingView: View {
 }
 
 #Preview {
+    @Previewable @State var harness = SwiftSP621E()
+    
     NavigationStack {
         PairingView()
     }
+    .environment(harness)
 }
