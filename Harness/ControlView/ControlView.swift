@@ -13,6 +13,7 @@ struct ControlView: View {
     @Environment(SwiftSP621E.self) private var harness
     @Environment(EffectsStore.self) private var effectsStore
     @AppStorage(UserDefaults.Keys.username) private var username: String = ""
+    @AppStorage(UserDefaults.Keys.pairingRequested) private var pairingRequested: Bool = false
     
     private var posessiveUsername: String {
         guard let last = username.last else { return username }
@@ -37,10 +38,16 @@ struct ControlView: View {
                         Label("Edit Name", systemImage: "pencil")
                     }
                     
-                    NavigationLink {
-                        ManageDevicesView()
-                    } label: {
-                        Label("Manage Harness", systemImage: "gearshape.fill")
+                    if !harness.isPaired {
+                        Button("Pair Harness", systemImage: "gearshape.fill") {
+                            pairingRequested = true
+                        }
+                    } else {
+                        NavigationLink {
+                            ManageDevicesView()
+                        } label: {
+                            Label("Manage Harness", systemImage: "gearshape.fill")
+                        }
                     }
                 }
             }
@@ -78,8 +85,8 @@ struct ControlView: View {
                 ControlLabel("Power", systemImage: "power", color: .green)
             }
         }
-        .disabled(!harness.isConnected)
-        .dimmed(!harness.isConnected)
+        .disabled(harness.isPaired && !harness.isConnected)
+        .dimmed(harness.isPaired && !harness.isConnected)
         
         Group {
             Section("Brightness") {
@@ -115,8 +122,8 @@ struct ControlView: View {
                 EffectControls(type: .audio)
             }
         }
-        .disabled(!harness.powerOn || !harness.isConnected)
-        .dimmed(!harness.powerOn || !harness.isConnected)
+        .disabled(harness.isPaired && (!harness.powerOn || !harness.isConnected))
+        .dimmed(harness.isPaired && (!harness.powerOn || !harness.isConnected))
     }
     
     @ViewBuilder private var colorControls: some View {

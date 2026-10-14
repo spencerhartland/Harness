@@ -12,7 +12,9 @@ struct PairingView: View {
     @Environment(SwiftSP621E.self) private var harness
     @Environment(\.screenSize) private var screenSize
     @AppStorage(UserDefaults.Keys.onboardingRequired) private var onboardingRequired: Bool = true
+    @AppStorage(UserDefaults.Keys.pairingRequested) private var pairingRequested: Bool = false
     
+    @State private var continueWithoutPairing: Bool = false
     @State private var selectedControllers: [DiscoveredSP621E] = []
     
     var body: some View {
@@ -65,27 +67,42 @@ struct PairingView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Group {
-                if harness.isPaired {
-                    Button {
-                        onboardingRequired = false
-                    } label: {
-                        Text("Continue")
-                    }
-                } else {
-                    Button {
-                        harness.pairControllers(selectedControllers)
-                    } label: {
-                        Text("Pair")
+            VStack(alignment: .center, spacing: 16) {
+                Group {
+                    if harness.isPaired {
+                        Button {
+                            onboardingRequired = false
+                            pairingRequested = false
+                        } label: {
+                            Text("Continue")
+                        }
+                    } else {
+                        Button {
+                            harness.pairControllers(selectedControllers)
+                        } label: {
+                            Text("Pair")
+                        }
                     }
                 }
+                .buttonStyle(.glassProminent)
+                .buttonSizing(.flexible)
+                .controlSize(.extraLarge)
+                .font(.body.bold())
+                .disabled(selectedControllers.count < 2)
+                
+                Button("Continue without pairing") {
+                    continueWithoutPairing = true
+                }
+                .confirmationDialog("Continue without pairing?", isPresented: $continueWithoutPairing) {
+                    Button("Continue", role: .destructive) {
+                        onboardingRequired = false
+                        pairingRequested = false
+                    }
+                } message: {
+                    Text("You need to pair your harness to control it. Continue without pairing?")
+                }
             }
-            .buttonStyle(.glassProminent)
-            .buttonSizing(.flexible)
-            .controlSize(.extraLarge)
-            .font(.body.bold())
             .padding(.horizontal, 32)
-            .disabled(selectedControllers.count < 2)
         }
         .onAppear { harness.connect() }
     }
