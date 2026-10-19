@@ -9,11 +9,16 @@ import SwiftUI
 import SwiftSP621E
 
 struct EffectPicker: View {
+    private static let defaultEffectLength: Double = 10
+    
     @Environment(EffectsStore.self) private var effectsStore
     @Environment(SwiftSP621E.self) private var harness
     
-    typealias EffectType = SP621EEffect.EffectType
+    @State private var filterColors: Set<SP621EEffect.StandardColor> = []
+    @State private var filterEffectPattern: SP621EEffect.Pattern? = nil
+    @State private var audioEffectFilter: AudioEffectFilter = .showAll
     
+    typealias EffectType = SP621EEffect.EffectType
     let effectType: EffectType
     
     init(type: EffectType = .standard) {
@@ -78,10 +83,43 @@ struct EffectPicker: View {
                 Text("Favorite Effects")
             }
             
-            let allEffects = SP621EEffect.effects.filter { $0.type == effectType }
+            let filteredEffects = SP621EEffect.effects.filter {
+                guard $0.type == effectType else { return false }
+                
+                if $0.type == .audio {
+                    switch audioEffectFilter {
+                    case .showAll:
+                        return true
+                    case .showMulticolorOnly:
+                        guard let palette = $0.palette else { return false }
+                        return palette.count > 1
+                    case .showSingleColorOnly:
+                        guard $0.palette == nil else { return false }
+                        return true
+                    }
+                }
+                
+                if let filterEffectPattern {
+                    guard let pattern = $0.pattern,
+                          pattern == filterEffectPattern
+                    else {
+                        return false
+                    }
+                }
+                
+                if !filterColors.isEmpty {
+                    guard let palette = $0.palette,
+                          palette.contains(filterColors)
+                    else {
+                        return false
+                    }
+                }
+                
+                return true
+            }
             
-            Picker("All Effects", selection: $harness.effect) {
-                ForEach(allEffects) { effect in
+            Picker(selection: $harness.effect) {
+                ForEach(filteredEffects) { effect in
                     let isFavorite = favoriteEffects.contains(effect)
                     HStack {
                         Button {
@@ -98,6 +136,17 @@ struct EffectPicker: View {
                         Text(effect.name)
                     }
                     .tag(effect)
+                }
+            } label: {
+                HStack {
+                    Text("Effects")
+                    Spacer()
+                    FilterMenu(
+                        type: effectType,
+                        colors: $filterColors,
+                        pattern: $filterEffectPattern,
+                        audioEffectFilter: $audioEffectFilter
+                    )
                 }
             }
         }
@@ -117,7 +166,7 @@ struct EffectPicker: View {
             }
         }
         
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {
             switch effectType {
             case .standard:
                 LabeledSlider("Speed", value: $harness.effectSpeed, in: SP621E.effectSpeedRange)
@@ -128,7 +177,12 @@ struct EffectPicker: View {
                     in: SP621E.audioSensitivityRange
                 )
             }
-            LabeledSlider("Length", value: $harness.effectLength, in: SP621E.effectLengthRange)
+            LabeledSlider(
+                "Length",
+                value: $harness.effectLength,
+                defaultValue: Self.defaultEffectLength,
+                in: SP621E.effectLengthRange,
+            )
         }
         .padding([.horizontal, .bottom], 8)
     }
